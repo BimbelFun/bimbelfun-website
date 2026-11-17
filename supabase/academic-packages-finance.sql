@@ -130,6 +130,19 @@ as $$
       and public.bimbelfun_tutor_has_student(sp.student_id));
 $$;
 grant execute on function public.bimbelfun_package_belongs_to_student(uuid,uuid) to authenticated;
+create or replace function public.bimbelfun_package_matches_session(p_package_id uuid, p_student_id uuid, p_schedule_id uuid)
+returns boolean language sql stable security definer set search_path = public
+as $
+  select exists (
+    select 1 from public.student_packages sp
+    join public.schedules s on s.id = p_schedule_id
+    where sp.id = p_package_id and sp.student_id = p_student_id
+      and sp.class_id = s.class_id
+      and public.bimbelfun_tutor_student_in_class(p_student_id, p_schedule_id)
+  );
+$;
+grant execute on function public.bimbelfun_package_matches_session(uuid,uuid,uuid) to authenticated;
+
 
 alter table public.student_packages enable row level security;
 alter table public.invoices enable row level security;
@@ -265,7 +278,7 @@ create policy "attendance tutor insert own" on public.attendance_records
     and student_id is not null
     and public.bimbelfun_tutor_student_in_class(student_id, schedule_id)
     and package_id is not null
-    and public.bimbelfun_package_belongs_to_student(package_id, student_id)
+    and public.bimbelfun_package_matches_session(package_id, student_id, schedule_id)
     and nullif(trim(teaching_address), '') is not null
   );
 
@@ -286,7 +299,7 @@ create policy "attendance tutor update own" on public.attendance_records
     and student_id is not null
     and public.bimbelfun_tutor_student_in_class(student_id, schedule_id)
     and package_id is not null
-    and public.bimbelfun_package_belongs_to_student(package_id, student_id)
+    and public.bimbelfun_package_matches_session(package_id, student_id, schedule_id)
     and nullif(trim(teaching_address), '') is not null
   );
 
