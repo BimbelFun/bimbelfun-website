@@ -107,6 +107,19 @@ $$;
 
 grant execute on function public.bimbelfun_tutor_has_class(uuid) to authenticated;
 grant execute on function public.bimbelfun_tutor_has_student(uuid) to authenticated;
+create or replace function public.bimbelfun_tutor_student_in_class(p_student_id uuid, p_schedule_id uuid)
+returns boolean language sql stable security definer set search_path = public
+as $
+  select exists (
+    select 1 from public.schedules s
+    join public.class_students cs on cs.class_id = s.class_id
+    where s.id = p_schedule_id and cs.student_id = p_student_id
+      and public.bimbelfun_tutor_has_class(s.class_id)
+      and coalesce(lower(cs.status),'active') not in ('inactive','nonaktif','removed')
+  );
+$;
+grant execute on function public.bimbelfun_tutor_student_in_class(uuid,uuid) to authenticated;
+
 grant execute on function public.bimbelfun_package_is_assigned(uuid) to authenticated;
 
 create or replace function public.bimbelfun_package_belongs_to_student(p_package_id uuid, p_student_id uuid)
@@ -249,8 +262,11 @@ create policy "attendance tutor insert own" on public.attendance_records
         and t.profile_user_id = auth.uid()
         and s.id = attendance_records.schedule_id
     )
-    and (student_id is null or public.bimbelfun_tutor_has_student(student_id))
-    and (package_id is null or (student_id is not null and public.bimbelfun_package_belongs_to_student(package_id, student_id)))
+    and student_id is not null
+    and public.bimbelfun_tutor_student_in_class(student_id, schedule_id)
+    and package_id is not null
+    and public.bimbelfun_package_belongs_to_student(package_id, student_id)
+    and nullif(trim(teaching_address), '') is not null
   );
 
 drop policy if exists "attendance tutor update own" on public.attendance_records;
