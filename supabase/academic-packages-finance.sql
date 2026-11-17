@@ -109,7 +109,7 @@ grant execute on function public.bimbelfun_tutor_has_class(uuid) to authenticate
 grant execute on function public.bimbelfun_tutor_has_student(uuid) to authenticated;
 create or replace function public.bimbelfun_tutor_student_in_class(p_student_id uuid, p_schedule_id uuid)
 returns boolean language sql stable security definer set search_path = public
-as $
+as $$
   select exists (
     select 1 from public.schedules s
     join public.class_students cs on cs.class_id = s.class_id
@@ -117,7 +117,7 @@ as $
       and public.bimbelfun_tutor_has_class(s.class_id)
       and coalesce(lower(cs.status),'active') not in ('inactive','nonaktif','removed')
   );
-$;
+$$;
 grant execute on function public.bimbelfun_tutor_student_in_class(uuid,uuid) to authenticated;
 
 grant execute on function public.bimbelfun_package_is_assigned(uuid) to authenticated;
@@ -132,7 +132,7 @@ $$;
 grant execute on function public.bimbelfun_package_belongs_to_student(uuid,uuid) to authenticated;
 create or replace function public.bimbelfun_package_matches_session(p_package_id uuid, p_student_id uuid, p_schedule_id uuid)
 returns boolean language sql stable security definer set search_path = public
-as $
+as $$
   select exists (
     select 1 from public.student_packages sp
     join public.schedules s on s.id = p_schedule_id
@@ -140,7 +140,7 @@ as $
       and sp.class_id = s.class_id
       and public.bimbelfun_tutor_student_in_class(p_student_id, p_schedule_id)
   );
-$;
+$$;
 grant execute on function public.bimbelfun_package_matches_session(uuid,uuid,uuid) to authenticated;
 
 
