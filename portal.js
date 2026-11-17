@@ -33,6 +33,8 @@ async function loadTutor(uid){
  if(e){showMessage(e.message,true);return}
  $("attendanceState").textContent=r?"Masuk: "+timeText(r.check_in)+" | Pulang: "+timeText(r.check_out)+" | Status: "+r.status:"Belum presensi hari ini.";
  $("checkInBtn").disabled=!!r?.check_in;$("checkOutBtn").disabled=!r?.check_in||!!r?.check_out;
+ const {data:history,error:historyError}=await db.from("attendance_records").select("attendance_date,check_in,check_out,status").eq("tutor_id",t.id).order("attendance_date",{ascending:false}).limit(60);
+ const historyBody=$("tutorAttendanceHistory");if(historyBody)historyBody.innerHTML=historyError?'<tr><td colspan="4">'+esc(historyError.message)+'</td></tr>':history?.length?history.map(x=>'<tr><td>'+esc(x.attendance_date)+'</td><td>'+timeText(x.check_in)+'</td><td>'+timeText(x.check_out)+'</td><td>'+esc(x.status)+'</td></tr>').join(""):'<tr><td colspan="4">Belum ada riwayat presensi.</td></tr>';
 }
 async function countRows(table){const {count,error}=await db.from(table).select("*",{count:"exact",head:true});return error?"-":count}
 async function renderAdmin(){
@@ -51,7 +53,7 @@ async function renderAdmin(){
 }
 async function loadRecords(cfg){
  const cols=cfg.fields.map(f=>f[0]).join(",");
- const {data,error}=await db.from(cfg.table).select("id,"+cols).order("created_at",{ascending:false}).limit(250);
+ let query=db.from(cfg.table).select("id,"+cols);if(!["class_tutors","class_students"].includes(cfg.table))query=query.order("created_at",{ascending:false});const {data,error}=await query.limit(250);
  const head=$("recordHead"),body=$("recordRows");
  if(error){body.innerHTML='<tr><td>'+esc(error.message)+'</td></tr>';return}
  head.innerHTML="<tr>"+cfg.fields.map(f=>"<th>"+esc(f[1])+"</th>").join("")+"<th>Aksi</th></tr>";
@@ -79,7 +81,7 @@ async function loadAttendanceAdmin(){
 $("adminTabs").addEventListener("click",e=>{const b=e.target.closest("button[data-view]");if(!b)return;currentView=b.dataset.view;$("adminTabs").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));renderAdmin()});
 $("loginForm").addEventListener("submit",async e=>{e.preventDefault();loginMessage("Memproses...");const {error}=await db.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});if(error){loginMessage(error.message);return}loginMessage("");await loadSession()});
 $("logoutBtn").addEventListener("click",async()=>{await db.auth.signOut();location.reload()});
-$("checkInBtn").addEventListener("click",async()=>{if(!tutorRecord)return;const {error}=await db.from("attendance_records").insert({tutor_id:tutorRecord.id,attendance_date:today(),check_in:new Date().toISOString(),status:"hadir"});if(error){showMessage(error.message,true);return}showMessage("Presensi masuk tersimpan.");await loadTutor(currentUser.id)});
+$("checkInBtn").addEventListener("click",async()=>{if(!tutorRecord)return;const now=new Date();const late=now.getHours()>8||(now.getHours()===8&&now.getMinutes()>0);const {error}=await db.from("attendance_records").insert({tutor_id:tutorRecord.id,attendance_date:today(),check_in:now.toISOString(),status:late?"terlambat":"hadir"});if(error){showMessage(error.message,true);return}showMessage("Presensi masuk tersimpan.");await loadTutor(currentUser.id)});
 $("checkOutBtn").addEventListener("click",async()=>{if(!tutorRecord)return;const {error}=await db.from("attendance_records").update({check_out:new Date().toISOString()}).eq("tutor_id",tutorRecord.id).eq("attendance_date",today());if(error){showMessage(error.message,true);return}showMessage("Presensi pulang tersimpan.");await loadTutor(currentUser.id)});
 db.auth.onAuthStateChange((_event,session)=>{if(!session){$("appPanel").classList.add("portal-hidden");$("loginPanel").classList.remove("portal-hidden")}});
 loadSession();
