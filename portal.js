@@ -57,7 +57,7 @@ async function loadTutorAttendanceOptions(){
  studentSelect.innerHTML="<option value=\"\">Pilih murid</option>"+students.map(x=>"<option value=\""+esc(x.id)+"\">"+esc(x.full_name)+"</option>").join("");
  studentSelect.onchange=async()=>{
   const {data:pkgs}=await db.from("student_packages").select("id,subject,package_meetings,used_meetings,status").eq("student_id",studentSelect.value).eq("status","active");
-  packageSelect.innerHTML="<option value=\"\">Tanpa paket / pilih paket</option>"+(pkgs||[]).filter(p=>p.used_meetings<p.package_meetings).map(p=>"<option value=\""+esc(p.id)+"\">"+esc(p.subject)+" — sisa "+(p.package_meetings-p.used_meetings)+" dari "+p.package_meetings+"</option>").join("");
+  packageSelect.innerHTML="<option value=\"\">Pilih paket</option>"+(pkgs||[]).filter(p=>p.used_meetings<p.package_meetings).map(p=>"<option value=\""+esc(p.id)+"\">"+esc(p.subject)+" — sisa "+(p.package_meetings-p.used_meetings)+" dari "+p.package_meetings+"</option>").join("");
  };
  packageSelect.innerHTML="<option value=\"\">Pilih murid dahulu</option>";
 }
