@@ -152,7 +152,7 @@ drop policy if exists "tutor read assigned students" on public.students;
 create policy "tutor read assigned students" on public.students
   for select to authenticated using (public.bimbelfun_tutor_has_student(id));
 
-grant select on public.students to authenticated;
+grant select on public.students, public.class_students to authenticated;
 grant select on public.student_packages to authenticated;
 grant select, insert, update on public.attendance_records to authenticated;
 grant select, insert, update, delete on public.student_packages to authenticated;
