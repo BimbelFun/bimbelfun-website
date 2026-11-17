@@ -283,8 +283,11 @@ create policy "attendance tutor update own" on public.attendance_records
         and t.profile_user_id = auth.uid()
         and s.id = attendance_records.schedule_id
     )
-    and (student_id is null or public.bimbelfun_tutor_has_student(student_id))
-    and (package_id is null or public.bimbelfun_package_is_assigned(package_id))
+    and student_id is not null
+    and public.bimbelfun_tutor_student_in_class(student_id, schedule_id)
+    and package_id is not null
+    and public.bimbelfun_package_belongs_to_student(package_id, student_id)
+    and nullif(trim(teaching_address), '') is not null
   );
 
 -- Tambahkan tabel baru ke Realtime bila publication sudah tersedia.
