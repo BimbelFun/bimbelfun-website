@@ -93,9 +93,18 @@ async function renderAdmin(){
   root.innerHTML='<h2>Ringkasan Data</h2><div class="admin-stats" id="stats">Memuat...</div><p class="portal-muted">Pilih menu di atas untuk mengelola data. Pastikan data awal sudah dimasukkan.</p>';
   const names=[["Tentor","tutors"],["Murid","students"],["Program","programs"],["Kelas","classes"],["Jadwal","schedules"],["Presensi","attendance_records"],["Paket","student_packages"],["Tagihan","invoices"],["Pembayaran","payments"],["Pengeluaran","expenses"]];
   const counts=await Promise.all(names.map(x=>countRows(x[1])));
-  $("stats").innerHTML=names.map((x,i)=>'<div class="stat-card"><span>'+x[0]+'</span><strong>'+counts[i]+'</strong></div>').join("");return;
+  $("stats").innerHTML=names.map((x,i)=>'<div class="stat-card"><span>'+x[0]+'</span><strong>'+counts[i]+'</strong></div>').join("");
+  const [inv,pay,exp]=await Promise.all([db.from("invoices").select("amount"),db.from("payments").select("amount"),db.from("expenses").select("amount")]);
+  if(!inv.error&&!pay.error&&!exp.error){
+   const totalBilled=(inv.data||[]).reduce((a,x)=>a+Number(x.amount||0),0);
+   const income=(pay.data||[]).reduce((a,x)=>a+Number(x.amount||0),0);
+   const costs=(exp.data||[]).reduce((a,x)=>a+Number(x.amount||0),0);
+   $("stats").insertAdjacentHTML("afterend",'<div class="admin-stats"><div class="stat-card"><span>Total Tagihan</span><strong>Rp '+totalBilled.toLocaleString("id-ID")+'</strong></div><div class="stat-card"><span>Pembayaran Masuk</span><strong>Rp '+income.toLocaleString("id-ID")+'</strong></div><div class="stat-card"><span>Pengeluaran</span><strong>Rp '+costs.toLocaleString("id-ID")+'</strong></div><div class="stat-card"><span>Saldo Kas</span><strong>Rp '+(income-costs).toLocaleString("id-ID")+'</strong></div></div>');
+  }
+  return;
  }
  if(currentView==="attendance"){await loadAttendanceAdmin();return}
+ if(currentView==="invoices"){await loadInvoicesAdmin();return}
  const cfg=configs[currentView];if(!cfg)return;
  root.innerHTML='<div class="portal-head"><div><h2>'+cfg.title+'</h2><p class="portal-muted">Tambah, ubah, dan hapus data.</p></div><button id="addRecord" class="portal-btn">+ Tambah Data</button></div><div id="recordFormWrap"></div><div style="overflow:auto"><table class="portal-table"><thead id="recordHead"></thead><tbody id="recordRows"><tr><td>Memuat...</td></tr></tbody></table></div>';
  $("addRecord").onclick=()=>openRecordForm(cfg);
@@ -126,6 +135,27 @@ async function openRecordForm(cfg,row=null){
  $("recordFormWrap").innerHTML='<form id="recordForm" class="admin-form"><h3>'+(row?"Ubah Data":"Tambah Data")+'</h3>'+controls.join("")+'<div class="portal-actions"><button class="portal-btn" type="submit">Simpan</button><button class="small-btn" type="button" id="cancelForm">Batal</button></div></form>';
  $("cancelForm").onclick=()=>{$("recordFormWrap").innerHTML=""};
  $("recordForm").onsubmit=async e=>{e.preventDefault();const values=Object.fromEntries(new FormData(e.target).entries());for(const k in values)if(values[k]==="")values[k]=null;for(const k in values)if(["price","amount","day_of_week","package_meetings"].includes(k)&&values[k]!==null)values[k]=Number(values[k]);if(cfg.table==="student_packages"&&values.created_by===undefined)values.created_by=currentUser.id;if(cfg.table==="invoices"&&values.created_by===undefined)values.created_by=currentUser.id;if(cfg.table==="payments"&&values.recorded_by===undefined)values.recorded_by=currentUser.id;if(cfg.table==="expenses"&&values.created_by===undefined)values.created_by=currentUser.id;const query=editId?db.from(cfg.table).update(values).eq("id",editId):db.from(cfg.table).insert(values);const {error}=await query;if(error){alert("Gagal menyimpan: "+error.message);return}editId=null;$("recordFormWrap").innerHTML="";await loadRecords(cfg)};
+}
+async function loadInvoicesAdmin(){
+ $("adminContent").innerHTML='<h2>Tagihan Orang Tua</h2><button id="addInvoice" class="portal-btn">+ Buat Tagihan</button><div id="invoiceFormWrap"></div><div style="overflow:auto;margin-top:16px"><table class="portal-table"><thead><tr><th>No. Tagihan</th><th>Murid</th><th>Jumlah</th><th>Jatuh Tempo</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="invoiceRows"><tr><td colspan="6">Memuat...</td></tr></tbody></table></div>';
+ $("addInvoice").onclick=()=>openRecordForm(configs.invoices);
+ const {data,error}=await db.from("invoices").select("id,invoice_number,amount,due_date,status,students(full_name,guardian_phone)").order("created_at",{ascending:false}).limit(250);
+ $("invoiceRows").innerHTML=error?'<tr><td colspan="6">'+esc(error.message)+'</td></tr>':(data||[]).map(x=>'<tr><td>'+esc(x.invoice_number)+'</td><td>'+esc(x.students?.full_name||"-")+'</td><td>Rp '+Number(x.amount).toLocaleString("id-ID")+'</td><td>'+esc(x.due_date||"-")+'</td><td>'+esc(x.status)+'</td><td><button class="small-btn" data-print="'+x.id+'">Cetak / PDF</button> <button class="small-btn" data-wa="'+x.id+'">WhatsApp</button></td></tr>').join("")||'<tr><td colspan="6">Belum ada tagihan.</td></tr>';
+ $("invoiceRows").querySelectorAll("[data-print]").forEach(b=>b.onclick=()=>printInvoice(data.find(x=>x.id===b.dataset.print)));
+ $("invoiceRows").querySelectorAll("[data-wa]").forEach(b=>b.onclick=()=>shareInvoice(data.find(x=>x.id===b.dataset.wa)));
+}
+function invoiceMessage(x){
+ return "Tagihan BIMBEL FUN\\nNomor: "+x.invoice_number+"\\nNama murid: "+(x.students?.full_name||"-")+"\\nJumlah: Rp "+Number(x.amount).toLocaleString("id-ID")+"\\nJatuh tempo: "+(x.due_date||"-")+"\\nStatus: "+x.status+"\\nTerima kasih.";
+}
+function printInvoice(x){
+ const w=window.open("","_blank");if(!w){alert("Izinkan pop-up untuk mencetak tagihan.");return}
+ w.document.write('<html><head><title>Tagihan '+esc(x.invoice_number)+'</title><style>body{font:16px Arial;padding:32px}h1{color:#168f8a}hr{margin:24px 0}</style></head><body><h1>BIMBEL FUN</h1><h2>Tagihan Pembayaran</h2><hr><p>Nomor: '+esc(x.invoice_number)+'</p><p>Murid: '+esc(x.students?.full_name||"-")+'</p><p>Jumlah: Rp '+Number(x.amount).toLocaleString("id-ID")+'</p><p>Jatuh tempo: '+esc(x.due_date||"-")+'</p><p>Status: '+esc(x.status)+'</p><p>Terima kasih.</p><script>window.onload=()=>window.print()<\\/script></body></html>');w.document.close();
+}
+function shareInvoice(x){
+ const phone=(x.students?.guardian_phone||"").replace(/\\D/g,"");
+ const url="https://wa.me/"+phone+"?text="+encodeURIComponent(invoiceMessage(x));
+ if(!phone){alert("Nomor WhatsApp orang tua belum diisi pada data murid.");return}
+ window.open(url,"_blank");
 }
 async function loadAttendanceAdmin(){
  $("adminContent").innerHTML='<h2>Rekap Presensi Tentor</h2><button id="refreshAttendance" class="portal-btn">Muat Ulang</button><div style="overflow:auto;margin-top:16px"><table class="portal-table"><thead><tr><th>Tanggal</th><th>Nama Tentor</th><th>Kelas</th><th>Murid</th><th>Mapel</th><th>Masuk</th><th>Pulang</th><th>Durasi</th><th>Status</th></tr></thead><tbody id="attendanceRows"><tr><td colspan="5">Memuat data...</td></tr></tbody></table></div>';
