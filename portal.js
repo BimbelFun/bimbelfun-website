@@ -145,14 +145,14 @@ async function loadInvoicesAdmin(){
  $("invoiceRows").querySelectorAll("[data-wa]").forEach(b=>b.onclick=()=>shareInvoice(data.find(x=>x.id===b.dataset.wa)));
 }
 function invoiceMessage(x){
- return "Tagihan BIMBEL FUN\\nNomor: "+x.invoice_number+"\\nNama murid: "+(x.students?.full_name||"-")+"\\nJumlah: Rp "+Number(x.amount).toLocaleString("id-ID")+"\\nJatuh tempo: "+(x.due_date||"-")+"\\nStatus: "+x.status+"\\nTerima kasih.";
+ return "Tagihan BIMBEL FUN\nNomor: "+x.invoice_number+"\nNama murid: "+(x.students?.full_name||"-")+"\nJumlah: Rp "+Number(x.amount).toLocaleString("id-ID")+"\nJatuh tempo: "+(x.due_date||"-")+"\nStatus: "+x.status+"\nTerima kasih.";
 }
 function printInvoice(x){
  const w=window.open("","_blank");if(!w){alert("Izinkan pop-up untuk mencetak tagihan.");return}
- w.document.write('<html><head><title>Tagihan '+esc(x.invoice_number)+'</title><style>body{font:16px Arial;padding:32px}h1{color:#168f8a}hr{margin:24px 0}</style></head><body><h1>BIMBEL FUN</h1><h2>Tagihan Pembayaran</h2><hr><p>Nomor: '+esc(x.invoice_number)+'</p><p>Murid: '+esc(x.students?.full_name||"-")+'</p><p>Jumlah: Rp '+Number(x.amount).toLocaleString("id-ID")+'</p><p>Jatuh tempo: '+esc(x.due_date||"-")+'</p><p>Status: '+esc(x.status)+'</p><p>Terima kasih.</p><script>window.onload=()=>window.print()<\\/script></body></html>');w.document.close();
+ w.document.write('<html><head><title>Tagihan '+esc(x.invoice_number)+'</title><style>body{font:16px Arial;padding:32px}h1{color:#168f8a}hr{margin:24px 0}</style></head><body><h1>BIMBEL FUN</h1><h2>Tagihan Pembayaran</h2><hr><p>Nomor: '+esc(x.invoice_number)+'</p><p>Murid: '+esc(x.students?.full_name||"-")+'</p><p>Jumlah: Rp '+Number(x.amount).toLocaleString("id-ID")+'</p><p>Jatuh tempo: '+esc(x.due_date||"-")+'</p><p>Status: '+esc(x.status)+'</p><p>Terima kasih.</p></body></html>');w.document.close();w.print();
 }
 function shareInvoice(x){
- const phone=(x.students?.guardian_phone||"").replace(/\\D/g,"");
+ const phone=(x.students?.guardian_phone||"").replace(/\D/g,"");
  const url="https://wa.me/"+phone+"?text="+encodeURIComponent(invoiceMessage(x));
  if(!phone){alert("Nomor WhatsApp orang tua belum diisi pada data murid.");return}
  window.open(url,"_blank");
