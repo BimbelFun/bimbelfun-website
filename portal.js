@@ -119,9 +119,30 @@ async function renderAdmin(){
  if(currentView==="attendance"){await loadAttendanceAdmin();return}
  if(currentView==="invoices"){await loadInvoicesAdmin();return}
  const cfg=configs[currentView];if(!cfg)return;
- root.innerHTML='<div class="portal-head"><div><h2>'+cfg.title+'</h2><p class="portal-muted">Tambah, ubah, dan hapus data.</p></div><button id="addRecord" class="portal-btn">+ Tambah Data</button></div><div id="recordFormWrap"></div><div style="overflow:auto"><table class="portal-table"><thead id="recordHead"></thead><tbody id="recordRows"><tr><td>Memuat...</td></tr></tbody></table></div>';
+ root.innerHTML='<div class="portal-head"><div><h2>'+cfg.title+'</h2><p class="portal-muted">Tambah, ubah, dan hapus data.</p></div><div class="portal-actions">'+(currentView==="tutors"?'<button id="createTutorAccount" class="portal-btn">+ Buat Akun Login Tentor</button>':'')+'<button id="addRecord" class="portal-btn">+ Tambah Data</button></div></div><div id="createTutorAccountWrap"></div><div id="recordFormWrap"></div><div style="overflow:auto"><table class="portal-table"><thead id="recordHead"></thead><tbody id="recordRows"><tr><td>Memuat...</td></tr></tbody></table></div>';
  $("addRecord").onclick=()=>openRecordForm(cfg);
+ if(currentView==="tutors")$("createTutorAccount").onclick=()=>openTutorAccountForm();
  await loadRecords(cfg);
+}
+async function openTutorAccountForm(){
+ const wrap=$("createTutorAccountWrap");
+ wrap.innerHTML='<form id="createTutorAccountForm" class="admin-form"><h3>Buat Akun Login Tentor</h3><p class="portal-muted">Akun login, profil, dan data Tentor akan dibuat sekaligus.</p><label>Nama lengkap<input name="full_name" required autocomplete="name"></label><label>Email login<input name="email" type="email" required autocomplete="email"></label><label>Password awal (minimal 8 karakter)<input name="password" type="password" minlength="8" required autocomplete="new-password"></label><label>Nomor HP<input name="phone" type="tel"></label><label>Keahlian<input name="expertise" type="text"></label><div class="portal-actions"><button class="portal-btn" type="submit">Buat Akun Tentor</button><button class="small-btn" type="button" id="cancelTutorAccount">Batal</button></div><p id="createTutorAccountMessage" class="portal-muted" role="status"></p></form>';
+ $("cancelTutorAccount").onclick=()=>{wrap.innerHTML=""};
+ $("createTutorAccountForm").onsubmit=async e=>{
+  e.preventDefault();
+  const form=new FormData(e.currentTarget);
+  const payload=Object.fromEntries(form.entries());
+  const submit=e.currentTarget.querySelector('button[type="submit"]');
+  const message=$("createTutorAccountMessage");
+  submit.disabled=true;message.textContent="Membuat akun Tentor...";
+  const {data,error}=await db.functions.invoke("admin-create-tutor",{body:payload});
+  submit.disabled=false;
+  if(error){message.textContent="Gagal membuat akun: "+error.message;return}
+  if(data?.error){message.textContent="Gagal membuat akun: "+data.error;return}
+  message.textContent="Berhasil! Kode Tentor: "+(data.tutor_code||"-")+". Tentor sekarang dapat login menggunakan email dan password awal.";
+  e.currentTarget.reset();
+  await loadRecords(configs.tutors);
+ };
 }
 async function loadRecords(cfg){
  const cols=cfg.fields.map(f=>f[0]).join(",")+(cfg.table==="student_packages"?",used_meetings":"");
