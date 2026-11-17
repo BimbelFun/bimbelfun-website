@@ -1,5 +1,5 @@
 // Supabase Edge Function: create a Tentor account from the authenticated Admin portal.
-// Required Supabase function secrets: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY.
+// Required function secrets: SUPABASE_URL (provided by Supabase), BIMBELFUN_PUBLISHABLE_KEY, BIMBELFUN_SECRET_KEY.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
@@ -15,8 +15,8 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return respond({ error: "Method tidak diizinkan." }, 405);
 
   const url = Deno.env.get("SUPABASE_URL");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const anonKey = Deno.env.get("BIMBELFUN_PUBLISHABLE_KEY");
+  const serviceKey = Deno.env.get("BIMBELFUN_SECRET_KEY");
   if (!url || !anonKey || !serviceKey) return respond({ error: "Konfigurasi fungsi belum lengkap." }, 500);
 
   const authHeader = req.headers.get("Authorization");
