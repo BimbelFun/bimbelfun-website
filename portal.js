@@ -7,7 +7,7 @@ const timeText=v=>v?new Date(v).toLocaleTimeString("id-ID",{hour:"2-digit",minut
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function showMessage(t,error=false){$("message").textContent=t;$("message").classList.remove("portal-hidden","portal-error");if(error)$("message").classList.add("portal-error")}
 function loginMessage(t){$("loginMessage").textContent=t}
-let tutorRecord=null,currentUser=null,currentView="dashboard",editId=null,selectedScheduleId=null,tutorSchedules=[],realtimeChannel=null;
+let tutorRecord=null,currentUser=null,currentView="dashboard",editId=null,selectedScheduleId=null,tutorSchedules=[],realtimeChannel=null,selectedLoginRole=null;
 const configs={
  tutors:{title:"Data Tentor",table:"tutors",fields:[["tutor_code","Kode tentor"],["full_name","Nama lengkap","required"],["phone","Nomor HP"],["email","Email"],["expertise","Keahlian"],["status","Status"]]},
  students:{title:"Database Murid",table:"students",fields:[["student_code","Kode murid"],["full_name","Nama lengkap","required"],["gender","Jenis kelamin"],["birth_date","Tanggal lahir","date"],["education_level","Jenjang pendidikan","education"],["school_name","Nama sekolah"],["guardian_name","Nama orang tua/wali"],["guardian_phone","Telepon wali"],["address","Alamat"],["status","Status"]]},
@@ -21,14 +21,27 @@ const configs={
  payments:{title:"Pembayaran",table:"payments",fields:[["invoice_id","Tagihan","select:invoices:id:invoice_number"],["amount","Jumlah pembayaran (Rp)","number"],["payment_date","Tanggal pembayaran","date"],["payment_method","Metode pembayaran"],["reference","Referensi"],["notes","Catatan"]]},
  expenses:{title:"Pengeluaran",table:"expenses",fields:[["category","Kategori","required"],["description","Keterangan","required"],["amount","Jumlah (Rp)","number"],["expense_date","Tanggal","date"],["paid_to","Dibayarkan kepada"],["notes","Catatan"]]}
 };
-async function loadSession(){
+async function loadSession(expectedRole=null){
  const {data:{session}}=await db.auth.getSession();if(!session)return;
  const {data:p,error}=await db.from("profiles").select("full_name,role").eq("user_id",session.user.id).single();
- if(error||!p){await db.auth.signOut();loginMessage("Profil belum terdaftar di tabel profiles. Minta admin memeriksanya.");return}
- currentUser=session.user;$("loginPanel").classList.add("portal-hidden");$("appPanel").classList.remove("portal-hidden");$("welcome").textContent="Halo, "+(p.full_name||session.user.email);$("roleLabel").textContent="Akses: "+p.role;
- if(p.role==="admin"){$("adminPanel").classList.remove("portal-hidden");await renderAdmin();startRealtime("admin")}
- else if(p.role==="tentor"){$("tutorPanel").classList.remove("portal-hidden");$("todayDate").textContent="Tanggal: "+new Date().toLocaleDateString("id-ID");await loadTutor(session.user.id);startRealtime("tutor")}
- else showMessage("Peran akun belum diatur sebagai admin atau tentor.",true)
+ if(error||!p){await db.auth.signOut();$("loginPanel").classList.remove("portal-hidden");loginMessage("Profil belum terdaftar di tabel profiles. Minta admin memeriksanya.");return}
+ const actualRole=String(p.role||"").toLowerCase();
+ if(expectedRole&&actualRole!==expectedRole){
+  await db.auth.signOut();
+  $("appPanel").classList.add("portal-hidden");
+  $("loginPanel").classList.remove("portal-hidden");
+  loginMessage(expectedRole==="admin"?"Akun ini bukan akun Admin. Silakan pilih Login Tentor jika sesuai.":"Akun ini bukan akun Tentor. Silakan pilih Login Admin jika sesuai.");
+  return;
+ }
+ currentUser=session.user;
+ $("roleChoicePanel").classList.add("portal-hidden");
+ $("loginPanel").classList.add("portal-hidden");
+ $("appPanel").classList.remove("portal-hidden");
+ $("welcome").textContent="Halo, "+(p.full_name||session.user.email);
+ $("roleLabel").textContent="Akses: "+actualRole;
+ if(actualRole==="admin"){$("adminPanel").classList.remove("portal-hidden");$("tutorPanel").classList.add("portal-hidden");await renderAdmin();startRealtime("admin")}
+ else if(actualRole==="tentor"){$("tutorPanel").classList.remove("portal-hidden");$("adminPanel").classList.add("portal-hidden");$("todayDate").textContent="Tanggal: "+new Date().toLocaleDateString("id-ID");await loadTutor(session.user.id);startRealtime("tutor")}
+ else {await db.auth.signOut();$("appPanel").classList.add("portal-hidden");$("roleChoicePanel").classList.remove("portal-hidden");loginMessage("Peran akun belum diatur sebagai admin atau tentor.")}
 }
 async function loadTutor(uid){
  const {data:t,error}=await db.from("tutors").select("id,full_name").eq("profile_user_id",uid).single();
@@ -163,10 +176,35 @@ async function loadAttendanceAdmin(){
  const {data,error}=await db.from("attendance_records").select("attendance_date,check_in,check_out,status,subject,students(full_name),tutors(full_name),schedules(duration_minutes,classes(class_name))").order("attendance_date",{ascending:false}).limit(250);
  $("attendanceRows").innerHTML=error?'<tr><td colspan="9">'+esc(error.message)+'</td></tr>':data.length?data.map(r=>'<tr><td>'+esc(r.attendance_date)+'</td><td>'+esc(r.tutors?.full_name||"-")+'</td><td>'+esc(r.schedules?.classes?.class_name||"-")+'</td><td>'+esc(r.students?.full_name||"-")+'</td><td>'+esc(r.subject||"-")+'</td><td>'+timeText(r.check_in)+'</td><td>'+timeText(r.check_out)+'</td><td>'+esc(r.schedules?.duration_minutes||"-")+' menit</td><td>'+esc(r.status)+'</td></tr>').join(""):'<tr><td colspan="9">Belum ada data presensi.</td></tr>';
 }
-$("adminTabs").addEventListener("click",e=>{const b=e.target.closest("button[data-view]");if(!b)return;currentView=b.dataset.view;$("adminTabs").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));renderAdmin()});
-$("loginForm").addEventListener("submit",async e=>{e.preventDefault();loginMessage("Memproses...");const {error}=await db.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});if(error){loginMessage(error.message);return}loginMessage("");await loadSession()});
+function chooseLoginRole(role){
+ selectedLoginRole=role;
+ $("roleChoicePanel").classList.add("portal-hidden");
+ $("loginPanel").classList.remove("portal-hidden");
+ $("loginTitle").textContent=role==="admin"?"Login Admin":"Login Tentor";
+ $("loginDescription").textContent=role==="admin"?"Masuk menggunakan akun Admin Bimbel Fun.":"Masuk menggunakan akun Tentor yang telah didaftarkan Admin.";
+ $("email").value="";$("password").value="";loginMessage("");
+}
+$("adminLoginChoice").addEventListener("click",()=>chooseLoginRole("admin"));
+$("tutorLoginChoice").addEventListener("click",()=>chooseLoginRole("tentor"));
+$("backToRoleChoice").addEventListener("click",()=>{$("loginPanel").classList.add("portal-hidden");$("roleChoicePanel").classList.remove("portal-hidden");selectedLoginRole=null;loginMessage("")});
+$("adminTabs").addEventListener("click",e=>{
+ const b=e.target.closest("button[data-view]");
+ if(!b||!currentUser)return;
+ currentView=b.dataset.view;
+ $("adminTabs").querySelectorAll("button[data-view]").forEach(x=>x.classList.toggle("active",x===b));
+ renderAdmin();
+});
+$("loginForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+ if(!selectedLoginRole){loginMessage("Pilih jenis login terlebih dahulu.");return}
+ loginMessage("Memproses login...");
+ const {error}=await db.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});
+ if(error){loginMessage("Login gagal: "+error.message);return}
+ loginMessage("");
+ await loadSession(selectedLoginRole);
+});
 $("logoutBtn").addEventListener("click",async()=>{await db.auth.signOut();location.reload()});
 $("checkInBtn").addEventListener("click",async()=>{if(!tutorRecord||!selectedScheduleId)return;if(!$("tutorStudent").value){showMessage("Pilih murid yang diajar terlebih dahulu.",true);return}if(!$("tutorPackage").value){showMessage("Pilih paket pertemuan murid terlebih dahulu.",true);return}if(!$("teachingAddress").value.trim()){showMessage("Isi alamat tempat mengajar terlebih dahulu.",true);return}const {error}=await db.from("attendance_records").insert({tutor_id:tutorRecord.id,schedule_id:selectedScheduleId,attendance_date:today(),check_in:new Date().toISOString(),status:"hadir",student_id:$("tutorStudent").value||null,package_id:$("tutorPackage").value||null,subject:$("tutorSubject").value||null,teaching_address:$("teachingAddress").value.trim()||null});if(error){showMessage(error.message,true);return}showMessage("Presensi masuk tersimpan.");await refreshTutorAttendance()});
 $("checkOutBtn").addEventListener("click",async()=>{if(!tutorRecord||!selectedScheduleId)return;const {error}=await db.from("attendance_records").update({check_out:new Date().toISOString()}).eq("tutor_id",tutorRecord.id).eq("schedule_id",selectedScheduleId).eq("attendance_date",today());if(error){showMessage(error.message,true);return}showMessage("Presensi pulang tersimpan.");await refreshTutorAttendance()});
-db.auth.onAuthStateChange((_event,session)=>{if(!session){$("appPanel").classList.add("portal-hidden");$("loginPanel").classList.remove("portal-hidden")}});
-loadSession();
+db.auth.onAuthStateChange((_event,session)=>{if(!session){currentUser=null;$("appPanel").classList.add("portal-hidden");if(selectedLoginRole){$("loginPanel").classList.remove("portal-hidden")}else{$("loginPanel").classList.add("portal-hidden");$("roleChoicePanel").classList.remove("portal-hidden")}}});
+(async()=>{await db.auth.signOut();$("appPanel").classList.add("portal-hidden");$("loginPanel").classList.add("portal-hidden");$("roleChoicePanel").classList.remove("portal-hidden")})();
