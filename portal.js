@@ -115,8 +115,8 @@ async function loadRecords(cfg){
  let query=db.from(cfg.table).select("id,"+cols);if(!["class_tutors","class_students"].includes(cfg.table))query=query.order("created_at",{ascending:false});const {data,error}=await query.limit(250);
  const head=$("recordHead"),body=$("recordRows");
  if(error){body.innerHTML='<tr><td>'+esc(error.message)+'</td></tr>';return}
- head.innerHTML="<tr>"+cfg.fields.map(f=>"<th>"+esc(f[1])+"</th>").join("")+"<th>Aksi</th></tr>";
- body.innerHTML=data.length?data.map(row=>"<tr>"+cfg.fields.map(f=>"<td>"+esc(row[f[0]])+"</td>").join("")+'<td><button class="small-btn" data-edit="'+row.id+'">Ubah</button> <button class="small-btn danger" data-delete="'+row.id+'">Hapus</button></td></tr>').join(""):'<tr><td colspan="'+(cfg.fields.length+1)+'">Belum ada data.</td></tr>';
+ head.innerHTML="<tr>"+cfg.fields.map(f=>"<th>"+esc(f[1])+"</th>").join("")+(cfg.table==="student_packages"?"<th>Terpakai / Sisa</th>":"")+"<th>Aksi</th></tr>";
+ body.innerHTML=data.length?data.map(row=>"<tr>"+cfg.fields.map(f=>"<td>"+esc(row[f[0]])+"</td>").join("")+(cfg.table==="student_packages"?"<td>"+Number(row.used_meetings||0)+" / "+(Number(row.package_meetings)-Number(row.used_meetings||0))+"</td>":"")+'<td><button class="small-btn" data-edit="'+row.id+'">Ubah</button> <button class="small-btn danger" data-delete="'+row.id+'">Hapus</button></td></tr>').join(""):'<tr><td colspan="'+(cfg.fields.length+1)+'">Belum ada data.</td></tr>';
  body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openRecordForm(cfg,data.find(r=>r.id===b.dataset.edit)));
  body.querySelectorAll("[data-delete]").forEach(b=>b.onclick=async()=>{if(!confirm("Yakin ingin menghapus data ini?"))return;const {error}=await db.from(cfg.table).delete().eq("id",b.dataset.delete);if(error)alert(error.message);else await loadRecords(cfg)});
 }
