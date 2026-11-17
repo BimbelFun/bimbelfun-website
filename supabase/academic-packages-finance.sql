@@ -111,11 +111,11 @@ grant execute on function public.bimbelfun_package_is_assigned(uuid) to authenti
 
 create or replace function public.bimbelfun_package_belongs_to_student(p_package_id uuid, p_student_id uuid)
 returns boolean language sql stable security definer set search_path = public
-as $
+as $$
   select exists (select 1 from public.student_packages sp
     where sp.id = p_package_id and sp.student_id = p_student_id
       and public.bimbelfun_tutor_has_student(sp.student_id));
-$;
+$$;
 grant execute on function public.bimbelfun_package_belongs_to_student(uuid,uuid) to authenticated;
 
 alter table public.student_packages enable row level security;
