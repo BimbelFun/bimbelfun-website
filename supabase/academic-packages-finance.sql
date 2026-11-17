@@ -172,28 +172,40 @@ begin
       where id = old.package_id;
     end if;
     return old;
-  end if;
-
-  if TG_OP = 'UPDATE' and old.package_id is not null and old.check_out is not null
-     and (new.package_id is distinct from old.package_id or new.check_out is null) then
-    update public.student_packages
-    set used_meetings = greatest(0, used_meetings - 1),
-        status = case when status = 'completed' then 'active' else status end
-    where id = old.package_id;
-  end if;
-
-  if new.package_id is not null and new.check_out is not null
-     and (TG_OP = 'INSERT' or old.check_out is null or old.package_id is distinct from new.package_id) then
-    update public.student_packages
-    set used_meetings = used_meetings + 1,
-        status = case when used_meetings + 1 >= package_meetings then 'completed' else status end
-    where id = new.package_id and status = 'active'
-      and used_meetings < package_meetings;
-    if not found then
-      raise exception 'Paket tidak aktif atau seluruh pertemuannya sudah digunakan.';
+  elsif TG_OP = 'INSERT' then
+    if new.package_id is not null and new.check_out is not null then
+      update public.student_packages
+      set used_meetings = used_meetings + 1,
+          status = case when used_meetings + 1 >= package_meetings then 'completed' else status end
+      where id = new.package_id and status = 'active'
+        and used_meetings < package_meetings;
+      if not found then
+        raise exception 'Paket tidak aktif atau seluruh pertemuannya sudah digunakan.';
+      end if;
     end if;
+    return new;
+  else
+    if old.package_id is not null and old.check_out is not null
+       and (new.package_id is distinct from old.package_id or new.check_out is null) then
+      update public.student_packages
+      set used_meetings = greatest(0, used_meetings - 1),
+          status = case when status = 'completed' then 'active' else status end
+      where id = old.package_id;
+    end if;
+
+    if new.package_id is not null and new.check_out is not null
+       and (old.check_out is null or old.package_id is distinct from new.package_id) then
+      update public.student_packages
+      set used_meetings = used_meetings + 1,
+          status = case when used_meetings + 1 >= package_meetings then 'completed' else status end
+      where id = new.package_id and status = 'active'
+        and used_meetings < package_meetings;
+      if not found then
+        raise exception 'Paket tidak aktif atau seluruh pertemuannya sudah digunakan.';
+      end if;
+    end if;
+    return new;
   end if;
-  return new;
 end;
 $$;
 
