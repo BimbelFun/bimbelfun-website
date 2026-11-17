@@ -15,7 +15,7 @@ const configs={
  classes:{title:"Data Kelas",table:"classes",fields:[["class_name","Nama kelas","required"],["program_id","Program","select:programs:id:program_name"],["education_level","Jenjang"],["learning_mode","Metode belajar"],["status","Status"]]},
  class_tutors:{title:"Penugasan Tentor",table:"class_tutors",fields:[["class_id","Kelas","select:classes:id:class_name"],["tutor_id","Tentor","select:tutors:id:full_name"]]},
  class_students:{title:"Pendaftaran Murid ke Kelas",table:"class_students",fields:[["class_id","Kelas","select:classes:id:class_name"],["student_id","Murid","select:students:id:full_name"],["joined_at","Tanggal bergabung","date"],["status","Status"]]},
- schedules:{title:"Jadwal Kelas",table:"schedules",fields:[["class_id","Kelas","select:classes:id:class_name"],["day_of_week","Hari (1 Senin – 7 Minggu)","number"],["start_time","Jam mulai","time"],["end_time","Jam selesai","time"],["duration_minutes","Durasi (menit)","number"],["location","Lokasi"]]}
+ schedules:{title:"Jadwal Kelas",table:"schedules",fields:[["class_id","Kelas","select:classes:id:class_name"],["day_of_week","Hari (1 Senin – 7 Minggu)","number"],["start_time","Jam mulai","time"],["end_time","Jam selesai","time"],["duration_minutes","Durasi per pertemuan","duration"],["location","Lokasi"]]}
 };
 async function loadSession(){
  const {data:{session}}=await db.auth.getSession();if(!session)return;
@@ -78,6 +78,7 @@ async function loadRecords(cfg){
 }
 async function fieldControl(f,value){
  const [name,label,type]=f;let inputType=type==="date"?"date":type==="number"?"number":type==="time"?"time":"text";
+ if(type==="duration")return '<label>'+esc(label)+'<select name="'+name+'" required><option value="60" '+(String(value??60)==="60"?"selected":"")+' >60 menit</option><option value="90" '+(String(value)==="90"?"selected":"")+' >90 menit</option><option value="120" '+(String(value)==="120"?"selected":"")+' >120 menit</option></select></label>';
  if(type?.startsWith("select:")){const [,table,key,textCol]=type.split(":");const {data}=await db.from(table).select(key+","+textCol).order(textCol);return '<label>'+esc(label)+'<select name="'+name+'" required><option value="">Pilih '+esc(label)+'</option>'+(data||[]).map(o=>'<option value="'+esc(o[key])+'" '+(o[key]===value?"selected":"")+'>'+esc(o[textCol])+'</option>').join("")+'</select></label>'}
  return '<label>'+esc(label)+'<input name="'+name+'" type="'+inputType+'" '+(f[2]==="required"?"required":"")+' value="'+esc(value??"")+'"></label>';
 }
