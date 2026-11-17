@@ -111,7 +111,7 @@ async function renderAdmin(){
  await loadRecords(cfg);
 }
 async function loadRecords(cfg){
- const cols=cfg.fields.map(f=>f[0]).join(",");
+ const cols=cfg.fields.map(f=>f[0]).join(",")+(cfg.table==="student_packages"?",used_meetings":"");
  let query=db.from(cfg.table).select("id,"+cols);if(!["class_tutors","class_students"].includes(cfg.table))query=query.order("created_at",{ascending:false});const {data,error}=await query.limit(250);
  const head=$("recordHead"),body=$("recordRows");
  if(error){body.innerHTML='<tr><td>'+esc(error.message)+'</td></tr>';return}
