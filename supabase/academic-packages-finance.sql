@@ -109,6 +109,15 @@ grant execute on function public.bimbelfun_tutor_has_class(uuid) to authenticate
 grant execute on function public.bimbelfun_tutor_has_student(uuid) to authenticated;
 grant execute on function public.bimbelfun_package_is_assigned(uuid) to authenticated;
 
+create or replace function public.bimbelfun_package_belongs_to_student(p_package_id uuid, p_student_id uuid)
+returns boolean language sql stable security definer set search_path = public
+as $
+  select exists (select 1 from public.student_packages sp
+    where sp.id = p_package_id and sp.student_id = p_student_id
+      and public.bimbelfun_tutor_has_student(sp.student_id));
+$;
+grant execute on function public.bimbelfun_package_belongs_to_student(uuid,uuid) to authenticated;
+
 alter table public.student_packages enable row level security;
 alter table public.invoices enable row level security;
 alter table public.payments enable row level security;
@@ -134,6 +143,10 @@ drop policy if exists "admin manage expenses" on public.expenses;
 create policy "admin manage expenses" on public.expenses
   for all to authenticated using (public.bimbelfun_is_admin())
   with check (public.bimbelfun_is_admin());
+
+drop policy if exists "tutor read assigned class students" on public.class_students;
+create policy "tutor read assigned class students" on public.class_students
+  for select to authenticated using (public.bimbelfun_tutor_has_class(class_id));
 
 drop policy if exists "tutor read assigned students" on public.students;
 create policy "tutor read assigned students" on public.students
@@ -225,7 +238,7 @@ create policy "attendance tutor insert own" on public.attendance_records
         and s.id = attendance_records.schedule_id
     )
     and (student_id is null or public.bimbelfun_tutor_has_student(student_id))
-    and (package_id is null or public.bimbelfun_package_is_assigned(package_id))
+    and (package_id is null or (student_id is not null and public.bimbelfun_package_belongs_to_student(package_id, student_id)))
   );
 
 drop policy if exists "attendance tutor update own" on public.attendance_records;
