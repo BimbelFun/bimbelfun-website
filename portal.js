@@ -7,7 +7,7 @@ const timeText=v=>v?new Date(v).toLocaleTimeString("id-ID",{hour:"2-digit",minut
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function showMessage(t,error=false){$("message").textContent=t;$("message").classList.remove("portal-hidden","portal-error");if(error)$("message").classList.add("portal-error")}
 function loginMessage(t){$("loginMessage").textContent=t}
-let tutorRecord=null,currentUser=null,currentView="dashboard",editId=null,selectedScheduleId=null,tutorSchedules=[];
+let tutorRecord=null,currentUser=null,currentView="dashboard",editId=null,selectedScheduleId=null,tutorSchedules=[],realtimeChannel=null;
 const configs={
  tutors:{title:"Data Tentor",table:"tutors",fields:[["tutor_code","Kode tentor"],["full_name","Nama lengkap","required"],["phone","Nomor HP"],["email","Email"],["expertise","Keahlian"],["status","Status"]]},
  students:{title:"Database Murid",table:"students",fields:[["student_code","Kode murid"],["full_name","Nama lengkap","required"],["gender","Jenis kelamin"],["birth_date","Tanggal lahir","date"],["education_level","Jenjang pendidikan"],["school_name","Nama sekolah"],["guardian_name","Nama orang tua/wali"],["guardian_phone","Telepon wali"],["address","Alamat"],["status","Status"]]},
@@ -22,8 +22,8 @@ async function loadSession(){
  const {data:p,error}=await db.from("profiles").select("full_name,role").eq("user_id",session.user.id).single();
  if(error||!p){await db.auth.signOut();loginMessage("Profil belum terdaftar di tabel profiles. Minta admin memeriksanya.");return}
  currentUser=session.user;$("loginPanel").classList.add("portal-hidden");$("appPanel").classList.remove("portal-hidden");$("welcome").textContent="Halo, "+(p.full_name||session.user.email);$("roleLabel").textContent="Akses: "+p.role;
- if(p.role==="admin"){$("adminPanel").classList.remove("portal-hidden");await renderAdmin()}
- else if(p.role==="tentor"){$("tutorPanel").classList.remove("portal-hidden");$("todayDate").textContent="Tanggal: "+new Date().toLocaleDateString("id-ID");await loadTutor(session.user.id)}
+ if(p.role==="admin"){$("adminPanel").classList.remove("portal-hidden");await renderAdmin();startRealtime("admin")}
+ else if(p.role==="tentor"){$("tutorPanel").classList.remove("portal-hidden");$("todayDate").textContent="Tanggal: "+new Date().toLocaleDateString("id-ID");await loadTutor(session.user.id);startRealtime("tutor")}
  else showMessage("Peran akun belum diatur sebagai admin atau tentor.",true)
 }
 async function loadTutor(uid){
@@ -39,8 +39,12 @@ async function loadTutor(uid){
  selectedScheduleId=null;selector.onchange=async()=>{selectedScheduleId=selector.value||null;await refreshTutorAttendance()};
  $("checkInBtn").disabled=true;$("checkOutBtn").disabled=true;
  await refreshTutorAttendance();
- const {data:history,error:historyError}=await db.from("attendance_records").select("attendance_date,check_in,check_out,status,schedule_id,schedules(duration_minutes,classes(class_name))").eq("tutor_id",t.id).order("attendance_date",{ascending:false}).limit(60);
- const historyBody=$("tutorAttendanceHistory");if(historyBody)historyBody.innerHTML=historyError?'<tr><td colspan="6">'+esc(historyError.message)+'</td></tr>':history?.length?history.map(x=>'<tr><td>'+esc(x.attendance_date)+'</td><td>'+esc(x.schedules?.classes?.class_name||"-")+'</td><td>'+timeText(x.check_in)+'</td><td>'+timeText(x.check_out)+'</td><td>'+esc(x.schedules?.duration_minutes||"-")+' menit</td><td>'+esc(x.status)+'</td></tr>').join(""):'<tr><td colspan="6">Belum ada riwayat presensi.</td></tr>';
+ await loadTutorHistory();
+}
+async function loadTutorHistory(){
+ const {data:history,error}=await db.from("attendance_records").select("attendance_date,check_in,check_out,status,schedule_id,schedules(duration_minutes,classes(class_name))").eq("tutor_id",tutorRecord.id).order("attendance_date",{ascending:false}).limit(60);
+ const body=$("tutorAttendanceHistory");if(!body)return;
+ body.innerHTML=error?'<tr><td colspan="6">'+esc(error.message)+'</td></tr>':history?.length?history.map(x=>'<tr><td>'+esc(x.attendance_date)+'</td><td>'+esc(x.schedules?.classes?.class_name||"-")+'</td><td>'+timeText(x.check_in)+'</td><td>'+timeText(x.check_out)+'</td><td>'+esc(x.schedules?.duration_minutes||"-")+' menit</td><td>'+esc(x.status)+'</td></tr>').join(""):'<tr><td colspan="6">Belum ada riwayat presensi.</td></tr>';
 }
 async function refreshTutorAttendance(){
  const state=$("attendanceState");
@@ -50,6 +54,17 @@ async function refreshTutorAttendance(){
  const s=tutorSchedules.find(x=>x.id===selectedScheduleId);
  state.textContent="Durasi jadwal: "+s.duration_minutes+" menit. "+(r?"Masuk: "+timeText(r.check_in)+" | Pulang: "+timeText(r.check_out):"Belum presensi pertemuan ini.");
  $("checkInBtn").disabled=!!r?.check_in;$("checkOutBtn").disabled=!r?.check_in||!!r?.check_out;
+}
+function startRealtime(role){
+ if(realtimeChannel)db.removeChannel(realtimeChannel);
+ const tables=["tutors","students","programs","classes","class_tutors","class_students","schedules","attendance_records"];
+ realtimeChannel=db.channel("bimbelfun-live-updates");
+ for(const table of tables)realtimeChannel=realtimeChannel.on("postgres_changes",{event:"*",schema:"public",table},async()=>{
+  if(role==="admin"){await renderAdmin();return}
+  if(table==="class_tutors"||table==="schedules"||table==="tutors"){await loadTutor(currentUser.id);return}
+  if(table==="attendance_records"){await refreshTutorAttendance();await loadTutorHistory()}
+ });
+ realtimeChannel.subscribe();
 }
 async function countRows(table){const {count,error}=await db.from(table).select("*",{count:"exact",head:true});return error?"-":count}
 async function renderAdmin(){
