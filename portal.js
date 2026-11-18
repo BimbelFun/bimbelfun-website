@@ -138,7 +138,19 @@ async function openTutorAccountForm(){
   submit.disabled=true;message.textContent="Membuat akun Tentor...";
   const {data,error}=await db.functions.invoke("admin-create-tutor",{body:payload});
   submit.disabled=false;
-  if(error){message.textContent="Gagal membuat akun: "+error.message;return}
+  if(error){
+   let detail=error.message||"Terjadi kesalahan.";
+   try{
+    const response=error.context;
+    if(response&&typeof response.json==="function"){
+     const body=await response.clone().json();
+     if(body?.error)detail=body.error;
+     else if(body?.message)detail=body.message;
+    }
+   }catch{}
+   message.textContent="Gagal membuat akun: "+detail;
+   return;
+  }
   if(data?.error){message.textContent="Gagal membuat akun: "+data.error;return}
   message.textContent="Berhasil! Kode Tentor: "+(data.tutor_code||"-")+". Login Tentor: "+payload.username+" dan password awal.";
   e.currentTarget.reset();
