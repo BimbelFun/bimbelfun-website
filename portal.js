@@ -36,7 +36,6 @@ async function loadSession(expectedRole=null){
   return;
  }
  currentUser=session.user;
- $("roleChoicePanel").classList.add("portal-hidden");
  $("loginPanel").classList.add("portal-hidden");
  $("appPanel").classList.remove("portal-hidden");
  $("welcome").textContent="Halo, "+(p.full_name||session.user.email);
