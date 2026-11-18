@@ -81,3 +81,19 @@
 .footer-brand .brand-mark.brand-logo{width:130px;height:65px;min-width:130px}
 .portal-head .brand-mark.brand-logo{width:154px;height:76px;min-width:154px}
 @media(max-width:520px){.brand-mark.brand-logo{width:132px;height:65px;min-width:132px}.portal-head .brand-mark.brand-logo{width:140px;height:69px;min-width:140px}}
+
+/* Tutor learning resources */
+.resource-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:18px 0}
+.resource-filters label{display:grid;gap:6px;font-size:12px;font-weight:700}
+.resource-filters select,.resource-filters input{width:100%;min-width:0;padding:11px;border:1px solid #ccd6d1;border-radius:8px;background:#fff;font:inherit}
+.resource-actions{align-items:center;margin:12px 0 18px}
+.resource-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.resource-card{border:1px solid #e2e9e5;border-radius:12px;padding:16px;background:#fbfdfb}
+.resource-card h3{font-size:16px;margin:8px 0}
+.resource-card p{font-size:13px;line-height:1.65}
+.resource-meta,.resource-topic{font-size:11px;color:#16845a;font-weight:700}
+.resource-topic{margin:0}
+.resource-card details{border-top:1px solid #e8ece9;padding-top:10px;font-size:12px}
+.resource-card summary{cursor:pointer;font-weight:700;color:#177b55}
+.resource-note{margin-top:18px}
+@media(max-width:700px){.resource-filters,.resource-grid{grid-template-columns:1fr}}
