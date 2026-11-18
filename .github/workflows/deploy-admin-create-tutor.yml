@@ -5,7 +5,8 @@ on:
     branches:
       - main
     paths:
-      - "supabase functions deploy admin-create-tutor --project-ref "$SUPABASE_PROJECT_ID" --yes
+      - "supabase/functions/admin-create-tutor/**"
+      - ".github/workflows/deploy-admin-create-tutor.yml"
   workflow_dispatch:
 
 permissions:
@@ -40,4 +41,4 @@ jobs:
             echo "Missing GitHub Actions secret: SUPABASE_PROJECT_ID"
             exit 1
           fi
-          supabase functions deploy admin-create-tutor --project-ref "$SUPABASE_PROJECT_ID"
+          supabase functions deploy admin-create-tutor --project-ref "$SUPABASE_PROJECT_ID" --yes
