@@ -41,7 +41,7 @@ async function loadSession(expectedRole=null){
  $("welcome").textContent="Halo, "+(p.full_name||session.user.email);
  $("roleLabel").textContent="Akses: "+actualRole;
  if(actualRole==="admin"){$("adminPanel").classList.remove("portal-hidden");$("tutorPanel").classList.add("portal-hidden");await renderAdmin();startRealtime("admin")}
- else if(actualRole==="tentor"){$("tutorPanel").classList.remove("portal-hidden");$("adminPanel").classList.add("portal-hidden");$("todayDate").textContent="Tanggal: "+new Date().toLocaleDateString("id-ID");await loadTutor(session.user.id);startRealtime("tutor")}
+ else if(actualRole==="tentor"){$("tutorPanel").classList.remove("portal-hidden");$("adminPanel").classList.add("portal-hidden");$("todayDate").textContent="Tanggal: "+new Date().toLocaleDateString("id-ID");await loadTutor(session.user.id);initTutorResources();startRealtime("tutor")}
  else {await db.auth.signOut();$("appPanel").classList.add("portal-hidden");$("loginPanel").classList.remove("portal-hidden");loginMessage("Peran akun belum diatur sebagai Admin atau Tentor. Hubungi Admin Bimbel Fun.")}
 }
 async function loadTutor(uid){
