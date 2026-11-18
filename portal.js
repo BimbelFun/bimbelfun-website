@@ -118,6 +118,15 @@ async function renderAdmin(){
   return;
  }
  if(currentView==="attendance"){await loadAttendanceAdmin();return}
+ if(currentView==="reports"){
+  root.innerHTML='<h2>Laporan Bimbel Fun</h2><p class="portal-muted">Ringkasan data operasional dan keuangan.</p><div class="admin-stats" id="reportStats">Memuat laporan...</div><div class="portal-panel report-note"><h3>Rincian laporan</h3><p>Gunakan menu Absensi untuk melihat riwayat kehadiran tutor, dan menu Pembayaran untuk memeriksa tagihan serta pembayaran.</p></div>';
+  const names=[["Jumlah Siswa","students"],["Jumlah Tutor","tutors"],["Jumlah Kelas","classes"],["Total Presensi","attendance_records"]];
+  const counts=await Promise.all(names.map(x=>countRows(x[1])));
+  const [inv,pay,exp]=await Promise.all([db.from("invoices").select("amount"),db.from("payments").select("amount"),db.from("expenses").select("amount")]);
+  const billed=(inv.data||[]).reduce((a,x)=>a+Number(x.amount||0),0),income=(pay.data||[]).reduce((a,x)=>a+Number(x.amount||0),0),cost=(exp.data||[]).reduce((a,x)=>a+Number(x.amount||0),0);
+  $("reportStats").innerHTML=names.map((x,i)=>'<div class="stat-card"><span>'+x[0]+'</span><strong>'+counts[i]+'</strong></div>').join("")+'<div class="stat-card"><span>Total Tagihan</span><strong>Rp '+billed.toLocaleString("id-ID")+'</strong></div><div class="stat-card"><span>Pembayaran Masuk</span><strong>Rp '+income.toLocaleString("id-ID")+'</strong></div><div class="stat-card"><span>Pengeluaran</span><strong>Rp '+cost.toLocaleString("id-ID")+'</strong></div><div class="stat-card"><span>Saldo Kas</span><strong>Rp '+(income-cost).toLocaleString("id-ID")+'</strong></div>';
+  return;
+ }
  if(currentView==="invoices"){await loadInvoicesAdmin();return}
  const cfg=configs[currentView];if(!cfg)return;
  root.innerHTML='<div class="portal-head"><div><h2>'+cfg.title+'</h2><p class="portal-muted">Tambah, ubah, dan hapus data.</p></div><div class="portal-actions">'+(currentView==="tutors"?'<button id="createTutorAccount" class="portal-btn">+ Buat Akun Login Tentor</button>':'')+'<button id="addRecord" class="portal-btn">+ Tambah Data</button></div></div><div id="createTutorAccountWrap"></div><div id="recordFormWrap"></div><div style="overflow:auto"><table class="portal-table"><thead id="recordHead"></thead><tbody id="recordRows"><tr><td>Memuat...</td></tr></tbody></table></div>';
