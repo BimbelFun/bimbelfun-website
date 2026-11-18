@@ -144,7 +144,7 @@ async function openTutorAccountForm(){
     const response=error.context;
     if(response&&typeof response.json==="function"){
      const body=await response.clone().json();
-     if(body?.error)detail=body.error;
+     if(body?.error)detail=body.error+(body?.diagnostic?" — Detail: "+body.diagnostic:"");
      else if(body?.message)detail=body.message;
     }
    }catch{}
