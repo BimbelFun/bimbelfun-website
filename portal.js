@@ -12,7 +12,7 @@ const requestedLoginRole=new URLSearchParams(window.location.search).get("role")
 let selectedLoginRole=["admin","tentor"].includes(requestedLoginRole)?requestedLoginRole:null;
 const configs={
  tutors:{title:"Data Tentor",table:"tutors",fields:[["tutor_code","Kode tentor"],["full_name","Nama lengkap","required"],["phone","Nomor HP"],["email","Email"],["expertise","Keahlian"],["status","Status"]]},
- students:{title:"Database Murid",table:"students",fields:[["student_code","Kode murid"],["full_name","Nama lengkap","required"],["gender","Jenis kelamin"],["birth_date","Tanggal lahir","date"],["education_level","Jenjang pendidikan","education"],["school_name","Nama sekolah"],["guardian_name","Nama orang tua/wali"],["guardian_phone","Telepon wali"],["address","Alamat"],["status","Status"]]},
+ students:{title:"Database Murid",table:"students",fields:[["full_name","Nama lengkap","required"],["gender","Jenis kelamin"],["education_level","Jenjang pendidikan","education"],["school_name","Nama sekolah"],["guardian_name","Nama orang tua/wali"],["guardian_phone","Telepon wali"],["address","Alamat"],["status","Status"]]},
  programs:{title:"Program Belajar",table:"programs",fields:[["program_name","Nama program","required"],["education_level","Jenjang","education"],["description","Deskripsi"],["price","Biaya","number"],["status","Status"]]},
  classes:{title:"Data Kelas",table:"classes",fields:[["class_name","Nama kelas","required"],["program_id","Program","select:programs:id:program_name"],["education_level","Jenjang","education"],["learning_mode","Metode belajar"],["status","Status"]]},
  class_tutors:{title:"Penugasan Tentor",table:"class_tutors",fields:[["class_id","Kelas","select:classes:id:class_name"],["tutor_id","Tentor","select:tutors:id:full_name"]]},
