@@ -127,7 +127,7 @@ async function renderAdmin(){
 }
 async function openTutorAccountForm(){
  const wrap=$("createTutorAccountWrap");
- wrap.innerHTML='<form id="createTutorAccountForm" class="admin-form"><h3>Buat Akun Login Tentor</h3><p class="portal-muted">Akun login, profil, dan data Tentor akan dibuat sekaligus.</p><label>Nama lengkap<input name="full_name" required autocomplete="name"></label><label>Email login<input name="email" type="email" required autocomplete="email"></label><label>Password awal (minimal 8 karakter)<input name="password" type="password" minlength="8" required autocomplete="new-password"></label><label>Nomor HP<input name="phone" type="tel"></label><label>Keahlian<input name="expertise" type="text"></label><div class="portal-actions"><button class="portal-btn" type="submit">Buat Akun Tentor</button><button class="small-btn" type="button" id="cancelTutorAccount">Batal</button></div><p id="createTutorAccountMessage" class="portal-muted" role="status"></p></form>';
+ wrap.innerHTML='<form id="createTutorAccountForm" class="admin-form"><h3>Buat Akun Login Tentor</h3><p class="portal-muted">Buat username dan password khusus. Email hanya untuk data kontak.</p><label>Nama lengkap<input name="full_name" required autocomplete="name"></label><label>Username<input name="username" type="text" required autocomplete="off" placeholder="contoh: olla.bimbelfun" pattern="[A-Za-z0-9._-]{3,30}" title="3–30 karakter: huruf, angka, titik, garis bawah, atau tanda hubung"></label><label>Email kontak<input name="email" type="email" required autocomplete="email"></label><label>Password awal (minimal 8 karakter)<input name="password" type="password" minlength="8" required autocomplete="new-password"></label><label>Nomor HP<input name="phone" type="tel"></label><label>Keahlian<input name="expertise" type="text"></label><div class="portal-actions"><button class="portal-btn" type="submit">Buat Akun Tentor</button><button class="small-btn" type="button" id="cancelTutorAccount">Batal</button></div><p id="createTutorAccountMessage" class="portal-muted" role="status"></p></form>';
  $("cancelTutorAccount").onclick=()=>{wrap.innerHTML=""};
  $("createTutorAccountForm").onsubmit=async e=>{
   e.preventDefault();
@@ -140,7 +140,7 @@ async function openTutorAccountForm(){
   submit.disabled=false;
   if(error){message.textContent="Gagal membuat akun: "+error.message;return}
   if(data?.error){message.textContent="Gagal membuat akun: "+data.error;return}
-  message.textContent="Berhasil! Kode Tentor: "+(data.tutor_code||"-")+". Tentor sekarang dapat login menggunakan email dan password awal.";
+  message.textContent="Berhasil! Kode Tentor: "+(data.tutor_code||"-")+". Login Tentor: "+payload.username+" dan password awal.";
   e.currentTarget.reset();
   await loadRecords(configs.tutors);
  };
@@ -200,7 +200,9 @@ async function loadAttendanceAdmin(){
 }
 if(selectedLoginRole){
  $("loginTitle").textContent=selectedLoginRole==="admin"?"Login Admin":"Login Tentor";
- $("loginDescription").textContent=selectedLoginRole==="admin"?"Masuk menggunakan akun Admin Bimbel Fun.":"Masuk menggunakan akun Tentor yang telah didaftarkan Admin.";
+ $("loginDescription").textContent=selectedLoginRole==="admin"?"Masuk menggunakan username/email dan password Admin seperti biasa.":"Masuk menggunakan username dan password Tentor yang telah diberikan Admin.";
+ $("email").type=selectedLoginRole==="admin"?"email":"text";
+ $("email").placeholder=selectedLoginRole==="admin"?"Username / email Admin":"Username Tentor";
 }else{
  $("loginTitle").textContent="Link login tidak valid";
  $("loginDescription").textContent="Silakan kembali ke website dan pilih Login Admin atau Login Tentor.";
@@ -218,8 +220,16 @@ $("loginForm").addEventListener("submit",async e=>{
  e.preventDefault();
  if(!selectedLoginRole){loginMessage("Pilih jenis login terlebih dahulu.");return}
  loginMessage("Memproses login...");
- const {error}=await db.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});
- if(error){loginMessage("Login gagal: "+error.message);return}
+ const loginId=$("email").value.trim();
+ const password=$("password").value;
+ const authEmail=selectedLoginRole==="tentor"&&!loginId.includes("@")?loginId.toLowerCase()+"@tutor.bimbelfun.invalid":loginId;
+ let {error}=await db.auth.signInWithPassword({email:authEmail,password});
+ // Compatibility for Tentor accounts created before username login was introduced.
+ if(error&&selectedLoginRole==="tentor"&&loginId.includes("@")){
+  const legacy=await db.auth.signInWithPassword({email:loginId,password});
+  error=legacy.error;
+ }
+ if(error){loginMessage("Login gagal. Periksa username dan password Anda.");return}
  loginMessage("");
  await loadSession(selectedLoginRole);
 });
