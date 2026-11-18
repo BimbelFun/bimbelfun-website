@@ -114,16 +114,25 @@ Deno.serve(async (req) => {
   }
 
   const fullName = String(input.full_name || "").trim();
+  const username = String(input.username || "").trim().toLowerCase();
   const email = String(input.email || "").trim().toLowerCase();
   const password = String(input.password || "");
   const phone = String(input.phone || "").trim();
   const expertise = String(input.expertise || "").trim();
 
-  if (!fullName || !email || !password) {
+  if (!fullName || !username || !email || !password) {
     return respond({
-      error: "Nama, email, dan password wajib diisi.",
+      error: "Nama, username, email kontak, dan password wajib diisi.",
     }, 400);
   }
+
+  if (!/^[a-z0-9._-]{3,30}$/.test(username)) {
+    return respond({ error: "Format username tidak valid." }, 400);
+  }
+
+  const authEmail = username + "@tutor.bimbelfun.invalid";
+  const { data: usernameExists } = await service.from("profiles").select("user_id").ilike("username", username).maybeSingle();
+  if (usernameExists) return respond({ error: "Username sudah digunakan." }, 409);
 
   if (password.length < 8) {
     return respond({
@@ -137,7 +146,7 @@ Deno.serve(async (req) => {
 
   const { data: created, error: createError } =
     await service.auth.admin.createUser({
-      email,
+      email: authEmail,
       password,
       email_confirm: true,
       user_metadata: {
@@ -160,6 +169,7 @@ Deno.serve(async (req) => {
     await service.from("profiles").insert({
       user_id: uid,
       full_name: fullName,
+      username,
       role: "tentor",
       phone: phone || null,
     });
@@ -180,6 +190,7 @@ Deno.serve(async (req) => {
     await service.from("tutors").insert({
       profile_user_id: uid,
       tutor_code: tutorCode,
+    username,
       full_name: fullName,
       email,
       phone: phone || null,
