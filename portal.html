@@ -4,6 +4,27 @@
 <section id="loginPanel" class="portal-panel"><h1 id="loginTitle">Login</h1><p id="loginDescription" class="portal-muted">Masukkan username dan password akun Anda.</p><form id="loginForm" class="portal-form"><input id="email" type="text" placeholder="Username" autocomplete="username" required><input id="password" type="password" placeholder="Password" autocomplete="current-password" required><button class="portal-btn" type="submit">Masuk</button></form><p id="loginMessage" class="portal-muted" role="status"></p></section>
 <section id="appPanel" class="portal-hidden"><div class="portal-panel"><div class="portal-head"><div><span class="eyebrow">BIMBEL FUN PORTAL</span><h1 id="welcome">Dashboard</h1><p id="roleLabel" class="portal-muted"></p></div><button id="logoutBtn" class="portal-btn">Keluar</button></div><div id="message" class="portal-status portal-hidden" role="status"></div></div>
 <section id="tutorPanel" class="portal-panel portal-hidden"><h2>Presensi Hari Ini</h2><p id="todayDate" class="portal-muted"></p><label>Jadwal pertemuan<select id="tutorSchedule" required><option value="">Memuat jadwal...</option></select></label><div class="admin-form"><label>Nama murid<select id="tutorStudent" required><option value="">Pilih murid</option></select></label><label>Mata pelajaran<select id="tutorSubject" required><option value="">Pilih mapel</option><option>Calistung</option><option>All Mapel</option><option>English Course</option><option>Mengaji</option><option>Kreativitas</option></select></label><label>Paket pertemuan<select id="tutorPackage" required><option value="">Pilih paket</option></select></label><label>Alamat mengajar<input id="teachingAddress" type="text" placeholder="Alamat tempat mengajar" required></label></div><div class="portal-actions"><button id="checkInBtn" class="portal-btn">Presensi Masuk</button><button id="checkOutBtn" class="portal-btn" disabled>Presensi Pulang</button></div><p id="attendanceState" class="portal-muted"></p><h3>Riwayat Presensi Saya</h3><div style="overflow:auto"><table class="portal-table"><thead><tr><th>Tanggal</th><th>Kelas</th><th>Murid</th><th>Mapel</th><th>Masuk</th><th>Pulang</th><th>Durasi</th><th>Status</th></tr></thead><tbody id="tutorAttendanceHistory"><tr><td colspan="8">Memuat riwayat...</td></tr></tbody></table></div></section>
-<section id="adminPanel" class="portal-hidden">
-<div class="portal-panel"><h2>Administrasi Bimbel Fun</h2><p class="portal-muted">Kelola data utama, kelas, penugasan, jadwal, dan presensi.</p><nav id="adminTabs" class="admin-tabs"><button data-view="dashboard" class="active">Ringkasan</button><button data-view="tutors">Tentor</button><button data-view="students">Murid</button><button data-view="programs">Program</button><button data-view="classes">Kelas</button><button data-view="class_tutors">Tentor per Kelas</button><button data-view="class_students">Murid per Kelas</button><button data-view="schedules">Jadwal</button><button data-view="attendance">Presensi</button><button data-view="student_packages">Paket</button><button data-view="invoices">Tagihan</button><button data-view="payments">Pembayaran</button><button data-view="expenses">Pengeluaran</button></nav></div>
-<section id="adminContent" class="portal-panel"><p class="portal-muted">Memuat administrasi...</p></section></section></section></main><script src="portal.js"></script></body></html>
+<section id="adminPanel" class="portal-hidden admin-layout">
+<aside class="admin-sidebar">
+  <div class="admin-sidebar-label">MENU ADMIN</div>
+  <nav id="adminTabs" class="admin-nav">
+    <button data-view="dashboard" class="active"><span class="nav-icon">▦</span><span>Dashboard</span></button>
+    <button data-view="students"><span class="nav-icon">♙</span><span>Siswa</span></button>
+    <button data-view="classes"><span class="nav-icon">▦</span><span>Kelas &amp; Jadwal</span></button>
+    <button data-view="tutors"><span class="nav-icon">♧</span><span>Tutor</span></button>
+    <button data-view="attendance"><span class="nav-icon">▣</span><span>Absensi</span></button>
+    <button data-view="payments"><span class="nav-icon">▱</span><span>Pembayaran</span></button>
+    <button data-view="reports"><span class="nav-icon">▥</span><span>Laporan</span></button>
+  </nav>
+  <div class="admin-sidebar-extra">
+    <div class="admin-sidebar-label">PENGELOLAAN LAINNYA</div>
+    <button data-view="programs">Program belajar</button>
+    <button data-view="class_tutors">Tutor per kelas</button>
+    <button data-view="class_students">Siswa per kelas</button>
+    <button data-view="student_packages">Paket pertemuan</button>
+    <button data-view="invoices">Tagihan</button>
+    <button data-view="expenses">Pengeluaran</button>
+  </div>
+</aside>
+<section id="adminContent" class="portal-panel admin-content"><p class="portal-muted">Memuat administrasi...</p></section>
+</section></section></main><script src="portal.js"></script></body></html>
