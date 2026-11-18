@@ -5,8 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "supabase/functions/admin-create-tutor/**"
-      - ".github/workflows/deploy-admin-create-tutor.yml"
+      - "supabase functions deploy admin-create-tutor --project-ref "$SUPABASE_PROJECT_ID" --yes
   workflow_dispatch:
 
 permissions:
