@@ -249,7 +249,6 @@ async function openClassScheduleForm(cfg,row=null){
  const fallbackDays=String(row?.class_day||"").split(",").map(x=>Object.keys(dayNames).find(k=>dayNames[k]===x.trim())).filter(Boolean).map(Number);
  const chosenDays=days.length?days:fallbackDays;
  const firstSchedule=activeSchedules[0]||row?.schedules?.[0]||{};
- const grades=["PAUD","TK A","TK B",...Array.from({length:6},(_,i)=>"SD Kelas "+(i+1)),...Array.from({length:3},(_,i)=>"SMP Kelas "+(i+7)),...Array.from({length:3},(_,i)=>"SMA Kelas "+(i+10)),"Kelompok Belajar"];
  const subjects=["Calistung","All Mapel","English Course","Mengaji","Kreativitas"];
  const opts=(items,value,label)=>items.map(x=>'<option value="'+esc(x[value])+'" '+(String(x[value])===String(label)?"selected":"")+'>'+esc(x[label])+'</option>').join("");
  $("recordFormWrap").innerHTML='<form id="recordForm" class="admin-form"><h3>'+(row?"Ubah Kelas & Jadwal":"Tambah Kelas & Jadwal")+'</h3>'+
