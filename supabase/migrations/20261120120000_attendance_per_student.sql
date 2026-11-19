@@ -68,7 +68,7 @@ create or replace function public.bimbelfun_package_matches_session(
 )
 returns boolean
 language sql stable security definer set search_path = public
-as $
+as $$
   select exists (
     select 1
     from public.student_packages sp
