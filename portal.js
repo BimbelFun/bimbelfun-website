@@ -73,7 +73,7 @@ async function loadTutorAttendanceOptions(){
  const studentMap=new Map([...(links||[]),...(directLinks||[])].map(x=>[x.students?.id,x.students]).filter(x=>x[0]));const students=[...studentMap.values()].sort((a,b)=>a.full_name.localeCompare(b.full_name,"id"));
  studentSelect.innerHTML="<option value=\"\">Pilih murid</option>"+students.map(x=>"<option value=\""+esc(x.id)+"\">"+esc(x.full_name)+"</option>").join("");
  studentSelect.onchange=async()=>{
-  const {data:pkgs}=await db.from("student_packages").select("id,subject,package_meetings,used_meetings,status").eq("student_id",studentSelect.value).eq("status","active");
+  const {data:pkgs}=await db.from("student_packages").select("id,subject,package_meetings,used_meetings,status").eq("student_id",studentSelect.value).eq("tutor_id",tutorRecord.id).eq("status","active");
   packageSelect.innerHTML="<option value=\"\">Pilih paket</option>"+(pkgs||[]).filter(p=>p.used_meetings<p.package_meetings).map(p=>"<option value=\""+esc(p.id)+"\">"+esc(p.subject)+" — sisa "+(p.package_meetings-p.used_meetings)+" dari "+p.package_meetings+"</option>").join("");
  };
  packageSelect.innerHTML="<option value=\"\">Pilih murid dahulu</option>";
