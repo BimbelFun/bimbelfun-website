@@ -142,7 +142,7 @@ begin
   set is_active = false
   where class_id = v_class_id and not (day_of_week = any(p_days));
 
-  foreach v_day in array (select array_agg(distinct d order by d) from unnest(p_days) d)
+  for v_day in select distinct unnest(p_days) as day_value order by day_value
   loop
     update public.schedules
     set subject = p_subject,
