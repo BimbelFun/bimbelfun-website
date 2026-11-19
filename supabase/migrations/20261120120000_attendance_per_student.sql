@@ -41,7 +41,7 @@ as $$
   select exists (
     select 1
     from public.schedules s
-    join public.class_tutors ct on ct.class_id = s.class_id
+    join public.class_tutors ct on ct.class_id = s.class_id and ct.is_active = true
     join public.tutors t on t.id = ct.tutor_id
     where s.id = p_schedule_id
       and t.profile_user_id = auth.uid()
