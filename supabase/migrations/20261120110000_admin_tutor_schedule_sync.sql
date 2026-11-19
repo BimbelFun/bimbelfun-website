@@ -30,6 +30,7 @@ as $$
 declare
   v_class_id uuid;
   v_student_name text;
+  v_student_level text;
   v_days_text text;
   v_day integer;
 begin
@@ -70,7 +71,7 @@ begin
     raise exception 'Paket harus aktif, milik murid dan Tentor terpilih, serta masih memiliki sisa pertemuan.';
   end if;
 
-  select full_name into v_student_name
+  select full_name, education_level into v_student_name, v_student_level
   from public.students where id = p_student_id;
   if v_student_name is null then
     raise exception 'Data murid tidak ditemukan.';
@@ -88,17 +89,17 @@ begin
        education_level, learning_mode, status, program_id)
     values
       (v_student_name, p_student_id, p_subject, p_class_grade, v_days_text,
-       p_group_size, p_class_grade, 'offline', 'active', null)
+       p_group_size, coalesce(nullif(trim(p_class_grade), ''), v_student_level), 'offline', 'active', null)
     returning id into v_class_id;
   else
     update public.classes
     set class_name = v_student_name,
         student_id = p_student_id,
         subject = p_subject,
-        class_grade = p_class_grade,
+        class_grade = coalesce(nullif(trim(p_class_grade), ''), v_student_level),
         class_day = v_days_text,
         group_size = p_group_size,
-        education_level = p_class_grade,
+        education_level = coalesce(nullif(trim(p_class_grade), ''), v_student_level),
         learning_mode = 'offline'
     where id = p_class_id
     returning id into v_class_id;
