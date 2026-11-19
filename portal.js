@@ -48,7 +48,7 @@ async function loadTutor(uid){
  const {data:t,error}=await db.from("tutors").select("id,full_name").eq("profile_user_id",uid).single();
  if(error||!t){showMessage("Akun belum terhubung dengan data tutors melalui profile_user_id.",true);return}
  tutorRecord=t;
- const {data:assignments,error:assignmentError}=await db.from("class_tutors").select("classes(id,class_name,student_id,class_grade,class_day,group_size,students(full_name,school_name),schedules(id,day_of_week,start_time,end_time,location,duration_minutes,subject))").eq("tutor_id",t.id);
+ const {data:assignments,error:assignmentError}=await db.from("class_tutors").select("classes(id,class_name,student_id,class_grade,class_day,group_size,students(full_name,school_name),schedules(id,day_of_week,start_time,end_time,location,duration_minutes,subject,is_active))").eq("tutor_id",t.id);
  if(assignmentError){showMessage("Gagal memuat jadwal: "+assignmentError.message,true);return}
  const dayNames=["","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu","Minggu"];
  const directResult=await db.from("tutor_students").select("students(id,full_name,education_level,school_name)").eq("tutor_id",t.id);
