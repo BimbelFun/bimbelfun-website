@@ -256,7 +256,7 @@ async function openClassScheduleForm(cfg,row=null){
  '<label>Tentor<select id="classTutor" name="tutor_id" required><option value="">Pilih Tentor</option>'+tutorRows.data.map(t=>'<option value="'+esc(t.id)+'" '+(t.id===currentTutor?"selected":"")+'>'+esc(t.full_name)+'</option>').join("")+'</select></label>'+
  '<label>Murid<select id="classStudent" name="student_id" required><option value="">Pilih Tentor terlebih dahulu</option></select></label>'+
  '<label>Mata Pelajaran<select name="subject" required><option value="">Pilih mata pelajaran</option>'+subjects.map(v=>'<option '+(v===(row?.subject||"")?"selected":"")+'>'+esc(v)+'</option>').join("")+'</select></label>'+
- '<label>Jenjang / Kelas<select name="class_grade" required><option value="">Pilih kelas</option>'+grades.map(v=>'<option '+(v===(row?.class_grade||"")?"selected":"")+'>'+esc(v)+'</option>').join("")+'</select></label>'+
+
  '<label>Jumlah murid kelompok (opsional)<select name="group_size"><option value="">Tidak ditentukan</option>'+[1,2,3,4,5].map(v=>'<option value="'+v+'" '+(Number(row?.group_size)===v?"selected":"")+'>'+v+' murid</option>').join("")+'</select></label>'+
  '<label>Hari belajar (pilih satu atau beberapa)<select id="classDays" name="days" multiple size="5" required>'+Object.entries(dayNames).map(([n,v])=>'<option value="'+n+'" '+(chosenDays.includes(Number(n))?"selected":"")+'>'+v+'</option>').join("")+'</select></label>'+
  '<label>Durasi per pertemuan<select name="duration_minutes" required>'+[60,90,120].map(v=>'<option value="'+v+'" '+(Number(firstSchedule.duration_minutes||60)===v?"selected":"")+'>'+v+' menit</option>').join("")+'</select></label>'+
@@ -313,7 +313,7 @@ async function openClassScheduleForm(cfg,row=null){
    p_student_id:fd.get("student_id"),
    p_tutor_id:fd.get("tutor_id"),
    p_subject:fd.get("subject"),
-   p_class_grade:fd.get("class_grade"),
+   p_class_grade:null,
    p_group_size:group?Number(group):null,
    p_days:days,
    p_duration_minutes:Number(fd.get("duration_minutes")),
