@@ -18,6 +18,10 @@ nav.querySelectorAll('a').forEach(link => link.addEventListener('click', () => {
   nav.classList.remove('open'); menuToggle.setAttribute('aria-expanded', 'false');
 }));
 document.getElementById('year').textContent = new Date().getFullYear();
+const tutorWindow = document.getElementById('tutorWindow');
+document.getElementById('openTutorWindow')?.addEventListener('click', () => tutorWindow?.showModal());
+document.getElementById('closeTutorWindow')?.addEventListener('click', () => tutorWindow?.close());
+tutorWindow?.addEventListener('click', event => { if (event.target === tutorWindow) tutorWindow.close(); });
 async function loadPublicBimbelStats() {
  const section=document.getElementById('publicStats');if(!section||!window.supabase)return;
  const client=window.supabase.createClient('https://eoghhxnxugvsxxjotenu.supabase.co','sb_publishable_XNEladKm2lliq4h40XMcTQ_qsarZcTe');
