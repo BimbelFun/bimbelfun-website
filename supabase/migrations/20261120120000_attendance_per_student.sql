@@ -4,13 +4,15 @@
 -- Isi snapshot untuk presensi lama berdasarkan data jadwal yang masih tersimpan,
 -- sehingga perubahan jadwal berikutnya tidak mengubah tampilan riwayat lama.
 update public.attendance_records ar
-set student_name_snapshot = coalesce(ar.student_name_snapshot, st.full_name),
+set student_name_snapshot = coalesce(
+      ar.student_name_snapshot,
+      (select st.full_name from public.students st where st.id = ar.student_id)
+    ),
     class_name_snapshot = coalesce(ar.class_name_snapshot, c.class_name),
     schedule_day_snapshot = coalesce(ar.schedule_day_snapshot, s.day_of_week),
     duration_minutes_snapshot = coalesce(ar.duration_minutes_snapshot, s.duration_minutes)
 from public.schedules s
 left join public.classes c on c.id = s.class_id
-left join public.students st on st.id = ar.student_id
 where ar.schedule_id = s.id
   and (
     ar.student_name_snapshot is null
