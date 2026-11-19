@@ -45,6 +45,8 @@ declare
   v_student_level text;
   v_days_text text;
   v_day integer;
+  v_active_student_count integer;
+  v_selected_student_active boolean;
 begin
   if not public.bimbelfun_is_admin() then
     raise exception 'Hanya Admin yang dapat mengubah Kelas & Jadwal.';
@@ -150,9 +152,32 @@ begin
     values (v_class_id, p_tutor_id, true);
   end if;
 
-  update public.class_students
-  set status = 'inactive'
-  where class_id = v_class_id and student_id <> p_student_id;
+  -- Jangan menonaktifkan anggota kelas kelompok secara diam-diam.
+  select count(*) into v_active_student_count
+  from public.class_students
+  where class_id = v_class_id
+    and coalesce(lower(status), 'active') not in ('inactive','nonaktif','removed');
+
+  select exists (
+    select 1 from public.class_students
+    where class_id = v_class_id
+      and student_id = p_student_id
+      and coalesce(lower(status), 'active') not in ('inactive','nonaktif','removed')
+  ) into v_selected_student_active;
+
+  if coalesce(p_group_size, 1) <= 1 then
+    if v_active_student_count > 1 then
+      raise exception 'Kelas ini memiliki beberapa murid aktif. Kelola anggota kelompok terlebih dahulu atau gunakan kelas terpisah sebelum mengubahnya melalui formulir satu murid.';
+    end if;
+    update public.class_students
+    set status = 'inactive'
+    where class_id = v_class_id and student_id <> p_student_id;
+  else
+    if v_active_student_count + case when v_selected_student_active then 0 else 1 end > p_group_size then
+      raise exception 'Jumlah anggota aktif melebihi kapasitas kelompok yang dipilih.';
+    end if;
+    -- Anggota lain tetap aktif untuk kelas kelompok.
+  end if;
 
   if not exists (
     select 1 from public.class_students
