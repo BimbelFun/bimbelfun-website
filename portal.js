@@ -48,7 +48,7 @@ async function loadTutor(uid){
  const {data:t,error}=await db.from("tutors").select("id,full_name").eq("profile_user_id",uid).single();
  if(error||!t){showMessage("Akun belum terhubung dengan data tutors melalui profile_user_id.",true);return}
  tutorRecord=t;
- const {data:assignments,error:assignmentError}=await db.from("class_tutors").select("classes(id,class_name,student_id,class_grade,class_day,group_size,students(full_name,school_name),schedules(id,day_of_week,start_time,end_time,location,duration_minutes,subject,is_active))").eq("tutor_id",t.id);
+ const {data:assignments,error:assignmentError}=await db.from("class_tutors").select("classes(id,class_name,student_id,class_grade,class_day,group_size,students(full_name,school_name),schedules(id,day_of_week,start_time,end_time,location,duration_minutes,subject,is_active))").eq("tutor_id",t.id).eq("is_active",true);
  if(assignmentError){showMessage("Gagal memuat jadwal: "+assignmentError.message,true);return}
  const dayNames=["","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu","Minggu"];
  const directResult=await db.from("tutor_students").select("students(id,full_name,education_level,school_name)").eq("tutor_id",t.id);
@@ -204,7 +204,7 @@ async function loadRecords(cfg){
  }
  if(cfg.table==="student_packages"){const {data,error}=await db.from("student_packages").select("id,student_id,tutor_id,subject,package_meetings,used_meetings,price,purchased_at,expires_at,status,notes,students(full_name,education_level,school_name),tutors(full_name)").order("created_at",{ascending:false}).limit(250);const head=$("recordHead"),body=$("recordRows");if(error){body.innerHTML='<tr><td>'+esc(error.message)+'</td></tr>';return}head.innerHTML="<tr><th>Murid</th><th>Kelas</th><th>Sekolah</th><th>Tentor</th><th>Mapel</th><th>Pertemuan</th><th>Harga</th><th>Status</th><th>Aksi</th></tr>";body.innerHTML=(data||[]).map(x=>'<tr><td>'+esc(x.students?.full_name||"-")+'</td><td>'+esc(x.students?.education_level||"-")+'</td><td>'+esc(x.students?.school_name||"-")+'</td><td>'+esc(x.tutors?.full_name||"-")+'</td><td>'+esc(x.subject)+'</td><td>'+Number(x.used_meetings||0)+' / '+Number(x.package_meetings||0)+'</td><td>Rp '+Number(x.price||0).toLocaleString("id-ID")+'</td><td>'+esc(x.status)+'</td><td><button class="small-btn" data-edit="'+x.id+'">Ubah</button> <button class="small-btn danger" data-delete="'+x.id+'">Hapus</button></td></tr>').join("")||'<tr><td colspan="9">Belum ada paket.</td></tr>';body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openRecordForm(cfg,data.find(x=>x.id===b.dataset.edit)));body.querySelectorAll("[data-delete]").forEach(b=>b.onclick=async()=>{if(confirm("Hapus paket ini?")){const {error}=await db.from("student_packages").delete().eq("id",b.dataset.delete);if(error)alert(error.message);else await loadRecords(cfg)}});return}
  if(cfg.table==="classes"){
-  const {data,error}=await db.from("classes").select("id,class_name,student_id,subject,class_grade,class_day,group_size,education_level,learning_mode,status,students(full_name),schedules(id,day_of_week,start_time,end_time,location,subject,duration_minutes,is_active),class_tutors(tutor_id,tutors(full_name))").order("class_name");
+  const {data,error}=await db.from("classes").select("id,class_name,student_id,subject,class_grade,class_day,group_size,education_level,learning_mode,status,students(full_name),schedules(id,day_of_week,start_time,end_time,location,subject,duration_minutes,is_active),class_tutors(tutor_id,is_active,tutors(full_name))").order("class_name");
   const head=$("recordHead"),body=$("recordRows");if(error){body.innerHTML='<tr><td>'+esc(error.message)+'</td></tr>';return}
   head.innerHTML="<tr><th>Murid</th><th>Tentor</th><th>Hari</th><th>Mata Pelajaran</th><th>Kelas</th><th>Jadwal / Durasi</th><th>Lokasi</th><th>Aksi</th></tr>";
   const days=["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
@@ -243,7 +243,7 @@ async function openClassScheduleForm(cfg,row=null){
   db.from("tutor_students").select("tutor_id,student_id,students(id,full_name)").limit(1000)
  ]);
  if(tutorRows.error||assignmentRows.error){alert("Gagal memuat pilihan Tentor/Murid: "+(tutorRows.error||assignmentRows.error).message);return}
- const currentTutor=row?.class_tutors?.[0]?.tutor_id||null;
+ const currentTutor=row?.class_tutors?.find(x=>x.is_active!==false)?.tutor_id||null;
  const activeSchedules=(row?.schedules||[]).filter(x=>x.is_active!==false);
  const days=activeSchedules.map(x=>Number(x.day_of_week));
  const fallbackDays=String(row?.class_day||"").split(",").map(x=>Object.keys(dayNames).find(k=>dayNames[k]===x.trim())).filter(Boolean).map(Number);
