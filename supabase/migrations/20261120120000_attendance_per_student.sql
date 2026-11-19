@@ -58,3 +58,30 @@ as $$
 $$;
 
 grant execute on function public.bimbelfun_tutor_student_in_class(uuid,uuid) to authenticated;
+
+-- Paket yang digunakan harus cocok dengan murid, Tentor, kelas, dan mata pelajaran jadwal.
+create or replace function public.bimbelfun_package_matches_session(
+  p_package_id uuid, p_student_id uuid, p_schedule_id uuid
+)
+returns boolean
+language sql stable security definer set search_path = public
+as $
+  select exists (
+    select 1
+    from public.student_packages sp
+    join public.schedules s on s.id = p_schedule_id
+    join public.class_tutors ct on ct.class_id = s.class_id
+    join public.tutors t on t.id = ct.tutor_id
+    where sp.id = p_package_id
+      and sp.student_id = p_student_id
+      and sp.tutor_id = t.id
+      and sp.subject = s.subject
+      and sp.status = 'active'
+      and sp.used_meetings < sp.package_meetings
+      and (sp.class_id is null or sp.class_id = s.class_id)
+      and t.profile_user_id = auth.uid()
+      and public.bimbelfun_tutor_student_in_class(p_student_id, p_schedule_id)
+  );
+$;
+
+grant execute on function public.bimbelfun_package_matches_session(uuid,uuid,uuid) to authenticated;
