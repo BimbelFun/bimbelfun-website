@@ -22,6 +22,9 @@ where ar.schedule_id = s.id
   );
 
 -- Satu jadwal kelompok dapat memiliki presensi untuk beberapa murid pada hari yang sama.
+-- Tangani kedua kemungkinan: unique constraint atau index biasa.
+alter table public.attendance_records
+  drop constraint if exists attendance_records_tutor_schedule_date_key;
 drop index if exists public.attendance_records_tutor_schedule_date_key;
 create unique index attendance_records_tutor_schedule_student_date_key
   on public.attendance_records(tutor_id, schedule_id, student_id, attendance_date)
