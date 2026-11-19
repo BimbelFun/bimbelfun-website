@@ -38,14 +38,15 @@ begin
     raise exception 'Hanya Admin yang dapat mengubah Kelas & Jadwal.';
   end if;
 
-  if p_student_id is null or p_tutor_id is null or p_package_id is null then
-    raise exception 'Murid, Tentor, dan Paket Pertemuan wajib dipilih.';
+  if p_student_id is null or p_tutor_id is null or p_package_id is null
+     or nullif(trim(p_subject), '') is null then
+    raise exception 'Murid, Tentor, Mata Pelajaran, dan Paket Pertemuan wajib dipilih.';
   end if;
   if coalesce(array_length(p_days, 1), 0) = 0
      or exists (select 1 from unnest(p_days) d where d < 1 or d > 7) then
     raise exception 'Pilih minimal satu hari jadwal yang valid.';
   end if;
-  if p_duration_minutes not in (60, 90, 120) then
+  if p_duration_minutes is null or p_duration_minutes not in (60, 90, 120) then
     raise exception 'Durasi harus 60, 90, atau 120 menit.';
   end if;
   if p_group_size is not null and p_group_size not between 1 and 5 then
