@@ -240,10 +240,19 @@ function saveInvoicePNG(x){
  ctx.fillStyle="#168f8a";ctx.font="bold 30px Arial";ctx.fillText("Terima kasih telah mempercayai BIMBEL FUN.",90,1320);
  const a=document.createElement("a");a.download="Invoice-"+String(x.invoice_number||"BimbelFun")+".png";a.href=canvas.toDataURL("image/png");a.click();
 }
+function normalizeWhatsAppPhone(value){
+ let phone=String(value||"").replace(/\D/g,"");
+ if(phone.startsWith("00"))phone=phone.slice(2);
+ if(phone.startsWith("0"))phone="62"+phone.slice(1);
+ else if(phone.startsWith("8"))phone="62"+phone;
+ return phone;
+}
 function shareInvoice(x){
- const phone=(x.students?.guardian_phone||"").replace(/\D/g,"");
- const url="https://wa.me/"+phone+"?text="+encodeURIComponent(invoiceMessage(x));
+ const rawPhone=x.students?.guardian_phone||"";
+ const phone=normalizeWhatsAppPhone(rawPhone);
  if(!phone){alert("Nomor WhatsApp orang tua belum diisi pada data murid.");return}
+ if(phone.length<9||phone.length>15){alert("Format nomor WhatsApp orang tua tidak valid. Periksa kembali nomor pada data murid.");return}
+ const url="https://wa.me/"+phone+"?text="+encodeURIComponent(invoiceMessage(x));
  window.open(url,"_blank");
 }
 async function loadAttendanceAdmin(){
