@@ -64,8 +64,24 @@ begin
   if not exists (
     select 1 from public.tutor_students ts
     where ts.tutor_id = p_tutor_id and ts.student_id = p_student_id
+  ) and not (
+    p_class_id is not null and (
+      exists (
+        select 1 from public.class_tutors ct
+        join public.class_students cs on cs.class_id = ct.class_id
+        where ct.class_id = p_class_id and ct.tutor_id = p_tutor_id
+          and cs.student_id = p_student_id
+          and coalesce(lower(cs.status), 'active') not in ('inactive','nonaktif','removed')
+      )
+      or exists (
+        select 1 from public.class_tutors ct
+        join public.classes c on c.id = ct.class_id
+        where ct.class_id = p_class_id and ct.tutor_id = p_tutor_id
+          and c.student_id = p_student_id
+      )
+    )
   ) then
-    raise exception 'Murid belum ditugaskan kepada Tentor tersebut di menu Tutor per Murid.';
+    raise exception 'Murid belum ditugaskan kepada Tentor tersebut di menu Tutor per Murid atau kelas lama.';
   end if;
 
   if not exists (
