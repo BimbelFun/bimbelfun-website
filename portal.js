@@ -66,7 +66,7 @@ async function loadTutor(uid){
   const linked=classStudentLinks.filter(x=>x.class_id===cl.id).map(x=>x.students).filter(Boolean);
   const members=linked.length?linked:(cl.student_id&&cl.students?.full_name?[{id:cl.student_id,...cl.students}]:[]);
   members.forEach(st=>{if(st?.id)assignedStudents.set(st.id,st)});
-  return (cl.schedules||[]).flatMap(s=>members.map(st=>({...s,class_name:cl.class_name,class_id:cl.id,student_id:st.id,student_name:st.full_name,school_name:st.school_name,education_level:st.education_level})));
+  return (cl.schedules||[]).filter(s=>s.is_active!==false).flatMap(s=>members.map(st=>({...s,class_name:cl.class_name,class_id:cl.id,student_id:st.id,student_name:st.full_name,school_name:st.school_name,education_level:st.education_level})));
  });
  studentSelect.innerHTML='<option value="">Pilih murid terlebih dahulu</option>'+[...assignedStudents.values()].sort((a,b)=>a.full_name.localeCompare(b.full_name,"id")).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.full_name)+'</option>').join("");
  scheduleSelect.innerHTML='<option value="">Pilih murid dahulu</option>';scheduleSelect.disabled=true;
@@ -96,7 +96,7 @@ async function loadTutorAttendanceOptions(){
  studentSelect.value=s.student_id;
  subjectSelect.value=s.subject||"";
  addressInput.value=s.location||"";
- const {data:pkgs,error}=await db.from("student_packages").select("id,subject,package_meetings,used_meetings,status").eq("student_id",s.student_id).eq("tutor_id",tutorRecord.id).eq("status","active");
+ let packageQuery=db.from("student_packages").select("id,subject,package_meetings,used_meetings,status,class_id").eq("student_id",s.student_id).eq("tutor_id",tutorRecord.id).eq("status","active");if(s.class_id)packageQuery=packageQuery.or("class_id.is.null,class_id.eq."+s.class_id);const {data:pkgs,error}=await packageQuery;
  if(error){showMessage("Gagal memuat paket murid: "+error.message,true);return}
  packageSelect.innerHTML='<option value="">Pilih paket</option>'+(pkgs||[]).filter(p=>Number(p.used_meetings||0)<Number(p.package_meetings||0)).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.subject)+' — sisa '+(p.package_meetings-p.used_meetings)+' dari '+p.package_meetings+'</option>').join("");
 }
@@ -120,7 +120,7 @@ function startRealtime(role){
  realtimeChannel=db.channel("bimbelfun-live-updates");
  for(const table of tables)realtimeChannel=realtimeChannel.on("postgres_changes",{event:"*",schema:"public",table},async()=>{
   if(role==="admin"){await renderAdmin();return}
-  if(table==="class_tutors"||table==="tutor_students"||table==="schedules"||table==="tutors"){await loadTutor(currentUser.id);return}
+  if(["class_tutors","tutor_students","class_students","schedules","tutors","students","student_packages","classes"].includes(table)){await loadTutor(currentUser.id);return}
   if(table==="attendance_records"){await refreshTutorAttendance();await loadTutorHistory()}
  });
  realtimeChannel.subscribe();
@@ -204,11 +204,11 @@ async function loadRecords(cfg){
  }
  if(cfg.table==="student_packages"){const {data,error}=await db.from("student_packages").select("id,student_id,tutor_id,subject,package_meetings,used_meetings,price,purchased_at,expires_at,status,notes,students(full_name,education_level,school_name),tutors(full_name)").order("created_at",{ascending:false}).limit(250);const head=$("recordHead"),body=$("recordRows");if(error){body.innerHTML='<tr><td>'+esc(error.message)+'</td></tr>';return}head.innerHTML="<tr><th>Murid</th><th>Kelas</th><th>Sekolah</th><th>Tentor</th><th>Mapel</th><th>Pertemuan</th><th>Harga</th><th>Status</th><th>Aksi</th></tr>";body.innerHTML=(data||[]).map(x=>'<tr><td>'+esc(x.students?.full_name||"-")+'</td><td>'+esc(x.students?.education_level||"-")+'</td><td>'+esc(x.students?.school_name||"-")+'</td><td>'+esc(x.tutors?.full_name||"-")+'</td><td>'+esc(x.subject)+'</td><td>'+Number(x.used_meetings||0)+' / '+Number(x.package_meetings||0)+'</td><td>Rp '+Number(x.price||0).toLocaleString("id-ID")+'</td><td>'+esc(x.status)+'</td><td><button class="small-btn" data-edit="'+x.id+'">Ubah</button> <button class="small-btn danger" data-delete="'+x.id+'">Hapus</button></td></tr>').join("")||'<tr><td colspan="9">Belum ada paket.</td></tr>';body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openRecordForm(cfg,data.find(x=>x.id===b.dataset.edit)));body.querySelectorAll("[data-delete]").forEach(b=>b.onclick=async()=>{if(confirm("Hapus paket ini?")){const {error}=await db.from("student_packages").delete().eq("id",b.dataset.delete);if(error)alert(error.message);else await loadRecords(cfg)}});return}
  if(cfg.table==="classes"){
-  const {data,error}=await db.from("classes").select("id,class_name,student_id,subject,class_grade,class_day,group_size,education_level,learning_mode,status,students(full_name),schedules(day_of_week,start_time,end_time,location,subject),class_tutors(tutors(full_name))").order("class_name");
+  const {data,error}=await db.from("classes").select("id,class_name,student_id,subject,class_grade,class_day,group_size,education_level,learning_mode,status,students(full_name),schedules(id,day_of_week,start_time,end_time,location,subject,duration_minutes,is_active),class_tutors(tutor_id,tutors(full_name))").order("class_name");
   const head=$("recordHead"),body=$("recordRows");if(error){body.innerHTML='<tr><td>'+esc(error.message)+'</td></tr>';return}
   head.innerHTML="<tr><th>Murid</th><th>Tentor</th><th>Hari</th><th>Mata Pelajaran</th><th>Kelas</th><th>Jam</th><th>Lokasi</th><th>Aksi</th></tr>";
   const days=["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
-  body.innerHTML=(data||[]).length?data.map(r=>{const sch=r.schedules||[];const tutors=(r.class_tutors||[]).map(t=>t.tutors?.full_name).filter(Boolean).join(", ")||"-";return "<tr><td>"+esc(r.students?.full_name||r.class_name)+"</td><td>"+esc(tutors)+"</td><td>"+esc(r.class_day||sch.map(x=>days[Number(x.day_of_week)%7]||"-").join(", ")||"-")+"</td><td>"+esc(r.subject||sch.map(x=>x.subject).filter(Boolean).join(", ")||"-")+"</td><td>"+esc(r.class_grade||r.education_level||"-")+"</td><td>"+esc(sch.map(x=>String(x.start_time||"").slice(0,5)+"–"+String(x.end_time||"").slice(0,5)).join(", ")||"-")+"</td><td>"+esc(sch.map(x=>x.location).filter(Boolean).join(", ")||"-")+"</td><td><button class=\"small-btn\" data-edit=\""+r.id+"\">Ubah</button></td></tr>"}).join(""):'<tr><td colspan="7">Belum ada data jadwal.</td></tr>';
+  body.innerHTML=(data||[]).length?data.map(r=>{const sch=r.schedules||[];const tutors=(r.class_tutors||[]).map(t=>t.tutors?.full_name).filter(Boolean).join(", ")||"-";return "<tr><td>"+esc(r.students?.full_name||r.class_name)+"</td><td>"+esc(tutors)+"</td><td>"+esc(r.class_day||sch.map(x=>days[Number(x.day_of_week)%7]||"-").join(", ")||"-")+"</td><td>"+esc(r.subject||sch.map(x=>x.subject).filter(Boolean).join(", ")||"-")+"</td><td>"+esc(r.class_grade||r.education_level||"-")+"</td><td>"+esc(sch.filter(x=>x.is_active!==false).map(x=>dayNames[Number(x.day_of_week)%7]+" · "+(x.duration_minutes||60)+" menit").join(", ")||"-")+"</td><td>"+esc(sch.map(x=>x.location).filter(Boolean).join(", ")||"-")+"</td><td><button class=\"small-btn\" data-edit=\""+r.id+"\">Ubah</button></td></tr>"}).join(""):'<tr><td colspan="7">Belum ada data jadwal.</td></tr>';
   body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openRecordForm(cfg,data.find(r=>r.id===b.dataset.edit)));return;
  }
  if(cfg.table==="tutor_students"){const {data,error}=await db.from("tutor_students").select("id,student_id,tutor_id,students(full_name),tutors(full_name)").order("created_at",{ascending:false}).limit(250);const head=$("recordHead"),body=$("recordRows");if(error){body.innerHTML='<tr><td>'+esc(error.message)+'</td></tr>';return}head.innerHTML="<tr><th>Nama Murid</th><th>Nama Tentor</th><th>Aksi</th></tr>";body.innerHTML=(data||[]).slice().sort((a,b)=>String(a.tutors?.full_name||"").localeCompare(String(b.tutors?.full_name||""),"id")||String(a.students?.full_name||"").localeCompare(String(b.students?.full_name||""),"id")).map(x=>'<tr><td>'+esc(x.students?.full_name||"-")+'</td><td>'+esc(x.tutors?.full_name||"-")+'</td><td><button class="small-btn" data-edit="'+x.id+'">Edit</button> <button class="small-btn danger" data-delete="'+x.id+'">Hapus</button></td></tr>').join("")||'<tr><td colspan="3">Belum ada penugasan.</td></tr>';body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openRecordForm(cfg,data.find(x=>x.id===b.dataset.edit)));body.querySelectorAll("[data-delete]").forEach(b=>b.onclick=async()=>{if(confirm("Hapus penugasan ini?")){const {error}=await db.from("tutor_students").delete().eq("id",b.dataset.delete);if(error)alert(error.message);else await loadRecords(cfg)}});return}
@@ -235,7 +235,100 @@ async function fieldControl(f,value,table){
  if(type?.startsWith("select:")){const [,optionTable,key,textCol]=type.split(":");const {data}=await db.from(optionTable).select(key+","+textCol).order(textCol);return '<label>'+esc(label)+'<select name="'+name+'" '+(table==="classes"&&name==="student_id"?"":"required")+'><option value="">Pilih '+esc(label)+'</option>'+(data||[]).map(o=>'<option value="'+esc(o[key])+'" '+(o[key]===value?"selected":"")+'>'+esc(o[textCol])+'</option>').join("")+'</select></label>'}
  return '<label>'+esc(label)+'<input name="'+name+'" type="'+inputType+'" '+(f[2]==="required"?"required":"")+' value="'+esc(value??"")+'"></label>';
 }
+async function openClassScheduleForm(cfg,row=null){
+ editId=row?.id||null;
+ const dayNames={1:"Senin",2:"Selasa",3:"Rabu",4:"Kamis",5:"Jumat",6:"Sabtu",7:"Minggu"};
+ const [tutorRows,assignmentRows]=await Promise.all([
+  db.from("tutors").select("id,full_name").order("full_name"),
+  db.from("tutor_students").select("tutor_id,student_id,students(id,full_name)").limit(1000)
+ ]);
+ if(tutorRows.error||assignmentRows.error){alert("Gagal memuat pilihan Tentor/Murid: "+(tutorRows.error||assignmentRows.error).message);return}
+ const currentTutor=row?.class_tutors?.[0]?.tutor_id||null;
+ const activeSchedules=(row?.schedules||[]).filter(x=>x.is_active!==false);
+ const days=activeSchedules.map(x=>Number(x.day_of_week));
+ const fallbackDays=String(row?.class_day||"").split(",").map(x=>Object.keys(dayNames).find(k=>dayNames[k]===x.trim())).filter(Boolean).map(Number);
+ const chosenDays=days.length?days:fallbackDays;
+ const firstSchedule=activeSchedules[0]||row?.schedules?.[0]||{};
+ const grades=["PAUD","TK A","TK B",...Array.from({length:6},(_,i)=>"SD Kelas "+(i+1)),...Array.from({length:3},(_,i)=>"SMP Kelas "+(i+7)),...Array.from({length:3},(_,i)=>"SMA Kelas "+(i+10)),"Kelompok Belajar"];
+ const subjects=["Calistung","All Mapel","English Course","Mengaji","Kreativitas"];
+ const opts=(items,value,label)=>items.map(x=>'<option value="'+esc(x[value])+'" '+(String(x[value])===String(label)?"selected":"")+'>'+esc(x[label])+'</option>').join("");
+ $("recordFormWrap").innerHTML='<form id="recordForm" class="admin-form"><h3>'+(row?"Ubah Kelas & Jadwal":"Tambah Kelas & Jadwal")+'</h3>'+
+ '<label>Tentor<select id="classTutor" name="tutor_id" required><option value="">Pilih Tentor</option>'+tutorRows.data.map(t=>'<option value="'+esc(t.id)+'" '+(t.id===currentTutor?"selected":"")+'>'+esc(t.full_name)+'</option>').join("")+'</select></label>'+
+ '<label>Murid<select id="classStudent" name="student_id" required><option value="">Pilih Tentor terlebih dahulu</option></select></label>'+
+ '<label>Mata Pelajaran<select name="subject" required><option value="">Pilih mata pelajaran</option>'+subjects.map(v=>'<option '+(v===(row?.subject||"")?"selected":"")+'>'+esc(v)+'</option>').join("")+'</select></label>'+
+ '<label>Jenjang / Kelas<select name="class_grade" required><option value="">Pilih kelas</option>'+grades.map(v=>'<option '+(v===(row?.class_grade||"")?"selected":"")+'>'+esc(v)+'</option>').join("")+'</select></label>'+
+ '<label>Jumlah murid kelompok (opsional)<select name="group_size"><option value="">Tidak ditentukan</option>'+[1,2,3,4,5].map(v=>'<option value="'+v+'" '+(Number(row?.group_size)===v?"selected":"")+'>'+v+' murid</option>').join("")+'</select></label>'+
+ '<label>Hari belajar (pilih satu atau beberapa)<select id="classDays" name="days" multiple size="5" required>'+Object.entries(dayNames).map(([n,v])=>'<option value="'+n+'" '+(chosenDays.includes(Number(n))?"selected":"")+'>'+v+'</option>').join("")+'</select></label>'+
+ '<label>Durasi per pertemuan<select name="duration_minutes" required>'+[60,90,120].map(v=>'<option value="'+v+'" '+(Number(firstSchedule.duration_minutes||60)===v?"selected":"")+'>'+v+' menit</option>').join("")+'</select></label>'+
+ '<label>Lokasi / Alamat belajar<input name="location" type="text" value="'+esc(firstSchedule.location||"")+'" placeholder="Alamat tempat belajar"></label>'+
+ '<label>Paket Pertemuan<select id="classPackage" name="package_id" required><option value="">Pilih murid dan tentor terlebih dahulu</option></select></label>'+
+ '<p class="portal-muted">Admin mengatur hari dan durasi. Jam mulai dan selesai tidak diisi di sini; Tentor mencatat waktu aktual melalui Presensi Masuk dan Presensi Pulang.</p>'+
+ '<div class="portal-actions"><button class="portal-btn" type="submit">Simpan</button><button class="small-btn" type="button" id="cancelForm">Batal</button></div></form>';
+ const studentSelect=$("classStudent"),tutorSelect=$("classTutor"),packageSelect=$("classPackage");
+ const selectedStudentId=row?.student_id||null;
+ const existingPackage=async()=>{
+  if(!row?.id||!currentTutor||!selectedStudentId)return null;
+  const q=await db.from("student_packages").select("id").eq("class_id",row.id).eq("student_id",selectedStudentId).eq("tutor_id",currentTutor).limit(1);
+  return q.data?.[0]?.id||null;
+ };
+ const existingPackageId=await existingPackage();
+ async function refreshClassStudents(){
+  const tid=tutorSelect.value;
+  const eligible=(assignmentRows.data||[]).filter(x=>x.tutor_id===tid&&x.students?.id);
+  const unique=[...new Map(eligible.map(x=>[x.students.id,x.students])).values()].sort((a,b)=>a.full_name.localeCompare(b.full_name,"id"));
+  if(selectedStudentId&&tid===currentTutor&&!unique.some(x=>x.id===selectedStudentId)){
+   const old=await db.from("students").select("id,full_name").eq("id",selectedStudentId).maybeSingle();
+   if(old.data)unique.push(old.data);
+  }
+  studentSelect.innerHTML='<option value="">Pilih murid yang ditugaskan kepada Tentor</option>'+unique.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===(studentSelect.dataset.value||selectedStudentId)?"selected":"")+'>'+esc(x.full_name)+'</option>').join("");
+  if(!tid){studentSelect.disabled=true;studentSelect.innerHTML='<option value="">Pilih Tentor terlebih dahulu</option>'}
+  else studentSelect.disabled=false;
+  await refreshClassPackages();
+ }
+ async function refreshClassPackages(){
+  const sid=studentSelect.value,tid=tutorSelect.value;
+  packageSelect.innerHTML='<option value="">Memuat paket aktif...</option>';
+  if(!sid||!tid){packageSelect.innerHTML='<option value="">Pilih murid dan tentor terlebih dahulu</option>';return}
+  let q=db.from("student_packages").select("id,subject,package_meetings,used_meetings,class_id").eq("student_id",sid).eq("tutor_id",tid).eq("status","active");
+  if(row?.id)q=q.or("class_id.is.null,class_id.eq."+row.id);else q=q.is("class_id",null);
+  const result=await q.order("created_at",{ascending:false});
+  if(result.error){packageSelect.innerHTML='<option value="">Gagal memuat paket</option>';alert("Gagal memuat paket: "+result.error.message);return}
+  const packages=(result.data||[]).filter(p=>Number(p.used_meetings||0)<Number(p.package_meetings||0));
+  packageSelect.innerHTML='<option value="">Pilih paket aktif</option>'+packages.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.subject)+' — sisa '+(p.package_meetings-p.used_meetings)+' dari '+p.package_meetings+'</option>').join("");
+  if(existingPackageId&&sid===selectedStudentId&&tid===currentTutor)packageSelect.value=existingPackageId;
+ }
+ tutorSelect.onchange=async()=>{studentSelect.dataset.value="";await refreshClassStudents()};
+ studentSelect.onchange=()=>{studentSelect.dataset.value=studentSelect.value;refreshClassPackages()};
+ $("cancelForm").onclick=()=>{$("recordFormWrap").innerHTML=""};
+ await refreshClassStudents();
+ if(selectedStudentId)studentSelect.value=selectedStudentId;
+ await refreshClassPackages();
+ $("recordForm").onsubmit=async e=>{
+  e.preventDefault();
+  const fd=new FormData(e.currentTarget);
+  const days=[...$("classDays").selectedOptions].map(o=>Number(o.value));
+  const group=fd.get("group_size");
+  const result=await db.rpc("bimbelfun_admin_save_class_schedule",{
+   p_class_id:row?.id||null,
+   p_student_id:fd.get("student_id"),
+   p_tutor_id:fd.get("tutor_id"),
+   p_subject:fd.get("subject"),
+   p_class_grade:fd.get("class_grade"),
+   p_group_size:group?Number(group):null,
+   p_days:days,
+   p_duration_minutes:Number(fd.get("duration_minutes")),
+   p_location:fd.get("location")||null,
+   p_package_id:fd.get("package_id")
+  });
+  if(result.error){alert("Gagal menyimpan Kelas & Jadwal: "+result.error.message);return}
+  editId=null;$("recordFormWrap").innerHTML="";
+  alert("Kelas dan jadwal berhasil disinkronkan dengan penugasan Tentor dan paket murid.");
+  await loadRecords(cfg);
+ };
+}
+
 async function openRecordForm(cfg,row=null){
+ if(cfg.table==="classes")return openClassScheduleForm(cfg,row);
  editId=row?.id||null;if(cfg.table==="payments")rowForPaymentEdit=row||null;const controls=await Promise.all(cfg.fields.map(f=>fieldControl(f,row?.[f[0]],cfg.table)));
  $("recordFormWrap").innerHTML='<form id="recordForm" class="admin-form"><h3>'+(row?"Ubah Data":"Tambah Data")+'</h3>'+controls.join("")+'<div class="portal-actions"><button class="portal-btn" type="submit">Simpan</button><button class="small-btn" type="button" id="cancelForm">Batal</button></div></form>';
  $("cancelForm").onclick=()=>{$("recordFormWrap").innerHTML=""};
