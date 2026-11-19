@@ -4,6 +4,14 @@
 alter table public.schedules
   add column if not exists is_active boolean not null default true;
 
+-- Snapshot the schedule/student labels at check-in so later Admin edits do not
+-- rewrite the meaning of historical attendance rows.
+alter table public.attendance_records
+  add column if not exists student_name_snapshot text,
+  add column if not exists class_name_snapshot text,
+  add column if not exists schedule_day_snapshot integer,
+  add column if not exists duration_minutes_snapshot integer;
+
 -- Jadwal Admin menyimpan hari dan durasi; waktu aktual masuk/pulang dicatat oleh Tentor
 -- pada attendance_records. Existing schedule time values are retained until edited.
 alter table public.schedules
