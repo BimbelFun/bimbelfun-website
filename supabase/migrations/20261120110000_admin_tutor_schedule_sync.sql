@@ -88,7 +88,7 @@ begin
       (class_name, student_id, subject, class_grade, class_day, group_size,
        education_level, learning_mode, status, program_id)
     values
-      (v_student_name, p_student_id, p_subject, p_class_grade, v_days_text,
+      (v_student_name, p_student_id, p_subject, coalesce(nullif(trim(p_class_grade), ''), v_student_level), v_days_text,
        p_group_size, coalesce(nullif(trim(p_class_grade), ''), v_student_level), 'offline', 'active', null)
     returning id into v_class_id;
   else
