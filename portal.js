@@ -55,9 +55,35 @@ async function loadTutor(uid){
  const summary=$("tutorAssignmentsSummary");
  if(summary){const classCards=(assignments||[]).map(a=>{const c=a.classes;if(!c)return "";const days=String(c.class_day||"").split(",").map(x=>x.trim()).filter(Boolean).join(", ")||"Jadwal belum diisi";return '<article class="stat-card"><strong>'+esc(c.class_name)+'</strong><span>Kelas: '+esc(c.class_grade||"-")+'</span><span>Hari: '+esc(days)+'</span><span>Kelompok: '+esc(c.group_size?c.group_size+" murid":"-")+'</span><span>Murid: '+esc(c.students?.full_name||"Kelompok belajar (anggota belum ditentukan)")+'</span><span>Sekolah: '+esc(c.students?.school_name||"-")+'</span></article>'}).join("");const directCards=(directResult.data||[]).map(x=>'<article class="stat-card"><strong>'+esc(x.students?.full_name||"-")+'</strong><span>Penugasan langsung</span><span>Kelas: '+esc(x.students?.education_level||"-")+'</span><span>Sekolah: '+esc(x.students?.school_name||"-")+'</span></article>').join("");summary.innerHTML=classCards+directCards||( '<p class="portal-muted">Belum ada murid atau jadwal yang ditugaskan.</p>');}
  tutorSchedules=(assignments||[]).flatMap(a=>(a.classes?.schedules||[]).map(s=>({...s,class_name:a.classes.class_name,class_id:a.classes.id})));
- const selector=$("tutorSchedule");
- selector.innerHTML='<option value="">Pilih jadwal/pertemuan</option>'+tutorSchedules.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.class_name)+' — '+esc(dayNames[s.day_of_week]||"")+' '+esc(String(s.start_time||"").slice(0,5))+' ('+esc(s.duration_minutes)+' menit)</option>').join("");
- selectedScheduleId=null;selector.onchange=async()=>{selectedScheduleId=selector.value||null;await loadTutorAttendanceOptions();await refreshTutorAttendance()};
+ const studentSelect=$("tutorStudent"),scheduleSelect=$("tutorSchedule");
+ const assignedStudents=new Map();
+ (directResult.data||[]).forEach(x=>{if(x.students?.id)assignedStudents.set(x.students.id,x.students)});
+ const classIds=(assignments||[]).map(a=>a.classes?.id).filter(Boolean);
+ let classStudentLinks=[];
+ if(classIds.length){const links=await db.from("class_students").select("class_id,student_id,students(id,full_name,education_level,school_name)").in("class_id",classIds);if(!links.error)classStudentLinks=links.data||[];}
+ tutorSchedules=(assignments||[]).flatMap(a=>{
+  const cl=a.classes;if(!cl)return [];
+  const linked=classStudentLinks.filter(x=>x.class_id===cl.id).map(x=>x.students).filter(Boolean);
+  const members=linked.length?linked:(cl.student_id&&cl.students?.full_name?[{id:cl.student_id,...cl.students}]:[]);
+  members.forEach(st=>{if(st?.id)assignedStudents.set(st.id,st)});
+  return (cl.schedules||[]).flatMap(s=>members.map(st=>({...s,class_name:cl.class_name,class_id:cl.id,student_id:st.id,student_name:st.full_name,school_name:st.school_name,education_level:st.education_level})));
+ });
+ studentSelect.innerHTML='<option value="">Pilih murid terlebih dahulu</option>'+[...assignedStudents.values()].sort((a,b)=>a.full_name.localeCompare(b.full_name,"id")).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.full_name)+'</option>').join("");
+ scheduleSelect.innerHTML='<option value="">Pilih murid dahulu</option>';scheduleSelect.disabled=true;
+ selectedScheduleId=null;
+ studentSelect.onchange=async()=>{
+  selectedScheduleId=null;
+  const sid=studentSelect.value;
+  const matches=tutorSchedules.filter(s=>s.student_id===sid);
+  scheduleSelect.disabled=!sid;
+  scheduleSelect.innerHTML='<option value="">'+(sid?(matches.length?'Pilih jadwal/pertemuan':'Belum ada jadwal untuk murid ini'):'Pilih murid dahulu')+'</option>'+
+   matches.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.class_name)+' — '+esc(dayNames[s.day_of_week]||"")+' ('+esc(s.duration_minutes||60)+' menit)</option>').join("");
+  $("tutorSubject").value="";$("teachingAddress").value="";
+  $("tutorPackage").innerHTML='<option value="">Pilih jadwal dahulu</option>';
+  $("checkInBtn").disabled=true;$("checkOutBtn").disabled=true;
+  await refreshTutorAttendance();
+ };
+ scheduleSelect.onchange=async()=>{selectedScheduleId=scheduleSelect.value||null;await loadTutorAttendanceOptions();await refreshTutorAttendance()};
  await loadTutorAttendanceOptions();
  $("checkInBtn").disabled=true;$("checkOutBtn").disabled=true;
  await refreshTutorAttendance();
@@ -66,17 +92,13 @@ async function loadTutor(uid){
 async function loadTutorAttendanceOptions(){
  const s=tutorSchedules.find(x=>x.id===selectedScheduleId);
  const studentSelect=$("tutorStudent"),packageSelect=$("tutorPackage"),subjectSelect=$("tutorSubject"),addressInput=$("teachingAddress");
- if(!s){studentSelect.innerHTML="<option value=\"\">Pilih jadwal dahulu</option>";packageSelect.innerHTML="<option value=\"\">Pilih murid dahulu</option>";return}
- subjectSelect.value=s.subject||"";addressInput.value=s.location||"";
- const {data:links,error}=await db.from("class_students").select("students(id,full_name)").eq("class_id",s.class_id);const {data:directLinks}=await db.from("tutor_students").select("students(id,full_name)").eq("tutor_id",tutorRecord.id);
- if(error){showMessage("Gagal memuat murid kelas: "+error.message,true);return}
- const studentMap=new Map([...(links||[]),...(directLinks||[])].map(x=>[x.students?.id,x.students]).filter(x=>x[0]));const students=[...studentMap.values()].sort((a,b)=>a.full_name.localeCompare(b.full_name,"id"));
- studentSelect.innerHTML="<option value=\"\">Pilih murid</option>"+students.map(x=>"<option value=\""+esc(x.id)+"\">"+esc(x.full_name)+"</option>").join("");
- studentSelect.onchange=async()=>{
-  const {data:pkgs}=await db.from("student_packages").select("id,subject,package_meetings,used_meetings,status").eq("student_id",studentSelect.value).eq("tutor_id",tutorRecord.id).eq("status","active");
-  packageSelect.innerHTML="<option value=\"\">Pilih paket</option>"+(pkgs||[]).filter(p=>p.used_meetings<p.package_meetings).map(p=>"<option value=\""+esc(p.id)+"\">"+esc(p.subject)+" — sisa "+(p.package_meetings-p.used_meetings)+" dari "+p.package_meetings+"</option>").join("");
- };
- packageSelect.innerHTML="<option value=\"\">Pilih murid dahulu</option>";
+ if(!s){packageSelect.innerHTML='<option value="">Pilih jadwal dahulu</option>';return}
+ studentSelect.value=s.student_id;
+ subjectSelect.value=s.subject||"";
+ addressInput.value=s.location||"";
+ const {data:pkgs,error}=await db.from("student_packages").select("id,subject,package_meetings,used_meetings,status").eq("student_id",s.student_id).eq("tutor_id",tutorRecord.id).eq("status","active");
+ if(error){showMessage("Gagal memuat paket murid: "+error.message,true);return}
+ packageSelect.innerHTML='<option value="">Pilih paket</option>'+(pkgs||[]).filter(p=>Number(p.used_meetings||0)<Number(p.package_meetings||0)).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.subject)+' — sisa '+(p.package_meetings-p.used_meetings)+' dari '+p.package_meetings+'</option>').join("");
 }
 async function loadTutorHistory(){
  const {data:history,error}=await db.from("attendance_records").select("attendance_date,check_in,check_out,status,subject,students(full_name),schedule_id,schedules(duration_minutes,classes(class_name))").eq("tutor_id",tutorRecord.id).order("attendance_date",{ascending:false}).limit(60);
