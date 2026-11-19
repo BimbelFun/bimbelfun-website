@@ -167,8 +167,14 @@ async function openTutorAccountForm(){
  };
 }
 async function loadRecords(cfg){
+ if(cfg.table==="payments"){
+  const {data,error}=await db.from("payments").select("id,amount,payment_date,payment_method,reference,invoices(invoice_number,students(full_name))").order("created_at",{ascending:false}).limit(250);
+  const head=$("recordHead"),body=$("recordRows");if(error){body.innerHTML='<tr><td>'+esc(error.message)+'</td></tr>';return}
+  head.innerHTML="<tr><th>Murid</th><th>No. Invoice</th><th>Jumlah</th><th>Tanggal</th><th>Metode</th><th>Referensi</th></tr>";
+  body.innerHTML=(data||[]).length?data.map(x=>"<tr><td>"+esc(x.invoices?.students?.full_name||"-")+"</td><td>"+esc(x.invoices?.invoice_number||"-")+"</td><td>Rp "+Number(x.amount||0).toLocaleString("id-ID")+"</td><td>"+esc(x.payment_date||"-")+"</td><td>"+esc(x.payment_method||"-")+"</td><td>"+esc(x.reference||"-")+"</td></tr>").join(""):'<tr><td colspan="6">Belum ada pembayaran.</td></tr>';return;
+ }
  if(cfg.table==="classes"){
-  const {data,error}=await db.from("classes").select("id,class_name,education_level,schedules(day_of_week,start_time,end_time,location,subject),class_tutors(tutors(full_name))").order("class_name");
+  const {data,error}=await db.from("classes").select("id,class_name,program_id,education_level,learning_mode,status,schedules(day_of_week,start_time,end_time,location,subject),class_tutors(tutors(full_name))").order("class_name");
   const head=$("recordHead"),body=$("recordRows");if(error){body.innerHTML='<tr><td>'+esc(error.message)+'</td></tr>';return}
   head.innerHTML="<tr><th>Kelas</th><th>Tentor</th><th>Hari</th><th>Mata Pelajaran</th><th>Jam</th><th>Lokasi</th><th>Aksi</th></tr>";
   const days=["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
