@@ -4,6 +4,10 @@
 alter table public.schedules
   add column if not exists is_active boolean not null default true;
 
+-- Simpan riwayat penugasan Tentor pada kelas tanpa menghapus relasi lama.
+alter table public.class_tutors
+  add column if not exists is_active boolean not null default true;
+
 -- Snapshot the schedule/student labels at check-in so later Admin edits do not
 -- rewrite the meaning of historical attendance rows.
 alter table public.attendance_records
@@ -134,15 +138,16 @@ begin
     end if;
   end if;
 
-  -- The selected tutor becomes the active tutor for this class.
-  delete from public.class_tutors
+  -- Nonaktifkan penugasan lama tanpa menghapus riwayat relasinya.
+  update public.class_tutors
+  set is_active = false
   where class_id = v_class_id and tutor_id <> p_tutor_id;
-  if not exists (
-    select 1 from public.class_tutors
-    where class_id = v_class_id and tutor_id = p_tutor_id
-  ) then
-    insert into public.class_tutors(class_id, tutor_id)
-    values (v_class_id, p_tutor_id);
+  update public.class_tutors
+  set is_active = true
+  where class_id = v_class_id and tutor_id = p_tutor_id;
+  if not found then
+    insert into public.class_tutors(class_id, tutor_id, is_active)
+    values (v_class_id, p_tutor_id, true);
   end if;
 
   update public.class_students
