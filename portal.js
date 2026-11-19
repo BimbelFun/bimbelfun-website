@@ -60,10 +60,10 @@ async function loadTutor(uid){
  (directResult.data||[]).forEach(x=>{if(x.students?.id)assignedStudents.set(x.students.id,x.students)});
  const classIds=(assignments||[]).map(a=>a.classes?.id).filter(Boolean);
  let classStudentLinks=[];
- if(classIds.length){const links=await db.from("class_students").select("class_id,student_id,students(id,full_name,education_level,school_name)").in("class_id",classIds);if(!links.error)classStudentLinks=links.data||[];}
+ if(classIds.length){const links=await db.from("class_students").select("class_id,student_id,status,students(id,full_name,education_level,school_name)").in("class_id",classIds);if(!links.error)classStudentLinks=links.data||[];}
  tutorSchedules=(assignments||[]).flatMap(a=>{
   const cl=a.classes;if(!cl)return [];
-  const linked=classStudentLinks.filter(x=>x.class_id===cl.id).map(x=>x.students).filter(Boolean);
+  const linked=classStudentLinks.filter(x=>x.class_id===cl.id&&!["inactive","nonaktif","removed"].includes(String(x.status||"active").toLowerCase())).map(x=>x.students).filter(Boolean);
   const members=linked.length?linked:(cl.student_id&&cl.students?.full_name?[{id:cl.student_id,...cl.students}]:[]);
   members.forEach(st=>{if(st?.id)assignedStudents.set(st.id,st)});
   return (cl.schedules||[]).filter(s=>s.is_active!==false).flatMap(s=>members.map(st=>({...s,class_name:cl.class_name,class_id:cl.id,student_id:st.id,student_name:st.full_name,school_name:st.school_name,education_level:st.education_level})));
@@ -206,7 +206,7 @@ async function loadRecords(cfg){
  if(cfg.table==="classes"){
   const {data,error}=await db.from("classes").select("id,class_name,student_id,subject,class_grade,class_day,group_size,education_level,learning_mode,status,students(full_name),schedules(id,day_of_week,start_time,end_time,location,subject,duration_minutes,is_active),class_tutors(tutor_id,tutors(full_name))").order("class_name");
   const head=$("recordHead"),body=$("recordRows");if(error){body.innerHTML='<tr><td>'+esc(error.message)+'</td></tr>';return}
-  head.innerHTML="<tr><th>Murid</th><th>Tentor</th><th>Hari</th><th>Mata Pelajaran</th><th>Kelas</th><th>Jam</th><th>Lokasi</th><th>Aksi</th></tr>";
+  head.innerHTML="<tr><th>Murid</th><th>Tentor</th><th>Hari</th><th>Mata Pelajaran</th><th>Kelas</th><th>Jadwal / Durasi</th><th>Lokasi</th><th>Aksi</th></tr>";
   const days=["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
   body.innerHTML=(data||[]).length?data.map(r=>{const sch=r.schedules||[];const tutors=(r.class_tutors||[]).map(t=>t.tutors?.full_name).filter(Boolean).join(", ")||"-";return "<tr><td>"+esc(r.students?.full_name||r.class_name)+"</td><td>"+esc(tutors)+"</td><td>"+esc(r.class_day||sch.map(x=>days[Number(x.day_of_week)%7]||"-").join(", ")||"-")+"</td><td>"+esc(r.subject||sch.map(x=>x.subject).filter(Boolean).join(", ")||"-")+"</td><td>"+esc(r.class_grade||r.education_level||"-")+"</td><td>"+esc(sch.filter(x=>x.is_active!==false).map(x=>days[Number(x.day_of_week)%7]+" · "+(x.duration_minutes||60)+" menit").join(", ")||"-")+"</td><td>"+esc(sch.map(x=>x.location).filter(Boolean).join(", ")||"-")+"</td><td><button class=\"small-btn\" data-edit=\""+r.id+"\">Ubah</button></td></tr>"}).join(""):'<tr><td colspan="7">Belum ada data jadwal.</td></tr>';
   body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openRecordForm(cfg,data.find(r=>r.id===b.dataset.edit)));return;
