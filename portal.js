@@ -96,7 +96,7 @@ async function loadTutorAttendanceOptions(){
  studentSelect.value=s.student_id;
  subjectSelect.value=s.subject||"";
  addressInput.value=s.location||"";
- let packageQuery=db.from("student_packages").select("id,subject,package_meetings,used_meetings,status,class_id").eq("student_id",s.student_id).eq("tutor_id",tutorRecord.id).eq("status","active");if(s.class_id)packageQuery=packageQuery.or("class_id.is.null,class_id.eq."+s.class_id);const {data:pkgs,error}=await packageQuery;
+ let packageQuery=db.from("student_packages").select("id,subject,package_meetings,used_meetings,status,class_id").eq("student_id",s.student_id).eq("tutor_id",tutorRecord.id).eq("status","active");if(s.subject)packageQuery=packageQuery.eq("subject",s.subject);if(s.class_id)packageQuery=packageQuery.or("class_id.is.null,class_id.eq."+s.class_id);const {data:pkgs,error}=await packageQuery;
  if(error){showMessage("Gagal memuat paket murid: "+error.message,true);return}
  packageSelect.innerHTML='<option value="">Pilih paket</option>'+(pkgs||[]).filter(p=>Number(p.used_meetings||0)<Number(p.package_meetings||0)).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.subject)+' — sisa '+(p.package_meetings-p.used_meetings)+' dari '+p.package_meetings+'</option>').join("");
 }
@@ -254,7 +254,7 @@ async function openClassScheduleForm(cfg,row=null){
  $("recordFormWrap").innerHTML='<form id="recordForm" class="admin-form"><h3>'+(row?"Ubah Kelas & Jadwal":"Tambah Kelas & Jadwal")+'</h3>'+
  '<label>Tentor<select id="classTutor" name="tutor_id" required><option value="">Pilih Tentor</option>'+tutorRows.data.map(t=>'<option value="'+esc(t.id)+'" '+(t.id===currentTutor?"selected":"")+'>'+esc(t.full_name)+'</option>').join("")+'</select></label>'+
  '<label>Murid<select id="classStudent" name="student_id" required><option value="">Pilih Tentor terlebih dahulu</option></select></label>'+
- '<label>Mata Pelajaran<select name="subject" required><option value="">Pilih mata pelajaran</option>'+subjects.map(v=>'<option '+(v===(row?.subject||"")?"selected":"")+'>'+esc(v)+'</option>').join("")+'</select></label>'+
+ '<label>Mata Pelajaran<select id="classSubject" name="subject" required><option value="">Pilih mata pelajaran</option>'+subjects.map(v=>'<option '+(v===(row?.subject||"")?"selected":"")+'>'+esc(v)+'</option>').join("")+'</select></label>'+
 
  '<label>Jumlah murid kelompok (opsional)<select name="group_size"><option value="">Tidak ditentukan</option>'+[1,2,3,4,5].map(v=>'<option value="'+v+'" '+(Number(row?.group_size)===v?"selected":"")+'>'+v+' murid</option>').join("")+'</select></label>'+
  '<label>Hari belajar (pilih satu atau beberapa)<select id="classDays" name="days" multiple size="5" required>'+Object.entries(dayNames).map(([n,v])=>'<option value="'+n+'" '+(chosenDays.includes(Number(n))?"selected":"")+'>'+v+'</option>').join("")+'</select></label>'+
@@ -288,7 +288,7 @@ async function openClassScheduleForm(cfg,row=null){
   const sid=studentSelect.value,tid=tutorSelect.value;
   packageSelect.innerHTML='<option value="">Memuat paket aktif...</option>';
   if(!sid||!tid){packageSelect.innerHTML='<option value="">Pilih murid dan tentor terlebih dahulu</option>';return}
-  let q=db.from("student_packages").select("id,subject,package_meetings,used_meetings,class_id").eq("student_id",sid).eq("tutor_id",tid).eq("status","active");
+  const subject=$("classSubject").value;if(!subject){packageSelect.innerHTML='<option value="">Pilih mata pelajaran terlebih dahulu</option>';return}let q=db.from("student_packages").select("id,subject,package_meetings,used_meetings,class_id").eq("student_id",sid).eq("tutor_id",tid).eq("subject",subject).eq("status","active");
   if(row?.id)q=q.or("class_id.is.null,class_id.eq."+row.id);else q=q.is("class_id",null);
   const result=await q.order("created_at",{ascending:false});
   if(result.error){packageSelect.innerHTML='<option value="">Gagal memuat paket</option>';alert("Gagal memuat paket: "+result.error.message);return}
@@ -297,7 +297,7 @@ async function openClassScheduleForm(cfg,row=null){
   if(existingPackageId&&sid===selectedStudentId&&tid===currentTutor)packageSelect.value=existingPackageId;
  }
  tutorSelect.onchange=async()=>{studentSelect.dataset.value="";await refreshClassStudents()};
- studentSelect.onchange=()=>{studentSelect.dataset.value=studentSelect.value;refreshClassPackages()};
+ studentSelect.onchange=()=>{studentSelect.dataset.value=studentSelect.value;refreshClassPackages()};$("classSubject").onchange=()=>refreshClassPackages();
  $("cancelForm").onclick=()=>{$("recordFormWrap").innerHTML=""};
  await refreshClassStudents();
  if(selectedStudentId)studentSelect.value=selectedStudentId;
