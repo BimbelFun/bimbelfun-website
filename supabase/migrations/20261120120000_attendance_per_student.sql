@@ -85,6 +85,6 @@ as $
       and t.profile_user_id = auth.uid()
       and public.bimbelfun_tutor_student_in_class(p_student_id, p_schedule_id)
   );
-$;
+$$;
 
 grant execute on function public.bimbelfun_package_matches_session(uuid,uuid,uuid) to authenticated;
