@@ -267,7 +267,7 @@ async function openClassScheduleForm(cfg,row=null){
  const selectedStudentId=row?.student_id||null;
  const existingPackage=async()=>{
   if(!row?.id||!currentTutor||!selectedStudentId)return null;
-  const q=await db.from("student_packages").select("id").eq("student_id",selectedStudentId).eq("tutor_id",currentTutor).or("class_id.is.null,class_id.eq."+row.id).eq("status","active").limit(1);
+  const q=await db.from("student_packages").select("id").eq("class_id",row.id).eq("student_id",selectedStudentId).eq("tutor_id",currentTutor).eq("status","active").limit(1);
   return q.data?.[0]?.id||null;
  };
  const existingPackageId=await existingPackage();
