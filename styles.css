@@ -97,3 +97,5 @@
 .resource-card summary{cursor:pointer;font-weight:700;color:#177b55}
 .resource-note{margin-top:18px}
 @media(max-width:700px){.resource-filters,.resource-grid{grid-template-columns:1fr}}
+
+.public-stats{background:#f3fbfa;border-radius:28px;margin:28px auto;padding:clamp(24px,5vw,56px)}.public-stat-grid,.public-tutor-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:22px 0}.public-stat,.public-tutor-card{background:#fff;border:1px solid #dcefeb;border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:8px}.public-stat strong{font-size:clamp(2rem,5vw,3.2rem);color:#168f8a}.public-stat span,.public-tutor-card span,.public-tutor-card small{color:#64748b}.public-tutor-card strong{color:#163b3a;font-size:1.1rem}.public-stats h3{margin-top:28px}
