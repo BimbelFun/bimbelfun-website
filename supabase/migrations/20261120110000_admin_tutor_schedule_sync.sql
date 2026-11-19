@@ -118,6 +118,10 @@ begin
     values (v_class_id, p_tutor_id);
   end if;
 
+  update public.class_students
+  set status = 'inactive'
+  where class_id = v_class_id and student_id <> p_student_id;
+
   if not exists (
     select 1 from public.class_students
     where class_id = v_class_id and student_id = p_student_id
