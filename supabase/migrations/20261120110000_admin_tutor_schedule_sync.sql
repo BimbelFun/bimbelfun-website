@@ -89,6 +89,7 @@ begin
     where sp.id = p_package_id
       and sp.student_id = p_student_id
       and sp.tutor_id = p_tutor_id
+      and sp.subject = p_subject
       and sp.status = 'active'
       and sp.used_meetings < sp.package_meetings
       and (sp.class_id is null or sp.class_id = p_class_id)
