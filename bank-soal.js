@@ -22,7 +22,7 @@ const BIMBELFUN_RESOURCES = [
 {level:"SMA",grade:"Kelas 11",subject:"Fisika",topic:"Gerak lurus",title:"Kecepatan rata-rata",prompt:"Sebuah mobil menempuh 120 km dalam 2 jam. Berapa kecepatan rata-ratanya?",answer:"120 ÷ 2 = 60 km/jam."},
 {level:"SMA",grade:"Kelas 11",subject:"Kimia",topic:"Mol",title:"Menghitung jumlah mol",prompt:"Berapa mol zat dalam 18 gram air (H₂O), jika Mr H₂O = 18?",answer:"n = m/Mr = 18/18 = 1 mol."},
 {level:"SMA",grade:"Kelas 12",subject:"Matematika",topic:"Turunan",title:"Turunan fungsi",prompt:"Tentukan turunan pertama dari f(x) = 3x² + 2x − 5.",answer:"f'(x) = 6x + 2."},
-{level:"SMA",grade:"Kelas 12",subject:"Ekonomi",topic:"Pendapatan nasional",title:"Konsep PDB",prompt:"Jelaskan secara singkat apa yang dimaksud Produk Domestik Bruto (PDB).",answer:"Nilai total barang dan jasa akhir yang diproduksi di dalam wilayah suatu negara selama periode tertentu."}
+{level:"SMA",grade:"Kelas 12",subject:"Ekonomi",topic:"Pendapatan nasional",title:"Konsep PDB",prompt:"Jelaskan secara singkat apa yang dimaksud Produk Domestik Bruto (PDB).",answer:"Nilai total barang dan jasa akhir yang diproduksi di dalam wilayah suatu negara selama periode tertentu."},
 
 {level:"PAUD",grade:"PAUD",subject:"Motorik Halus",topic:"Menebalkan",title:"Jalur garis lurus dan lengkung",prompt:"Tebalkan jalur putus-putus dari kiri ke kanan.",answer:"Latihan koordinasi mata dan tangan.",worksheetType:"trace"},
 {level:"PAUD",grade:"PAUD",subject:"Motorik Halus",topic:"Menebalkan",title:"Menebalkan garis zigzag",prompt:"Ikuti jalur zigzag dengan pensil tanpa keluar garis.",answer:"Latihan motorik halus.",worksheetType:"trace"},
