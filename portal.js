@@ -343,18 +343,14 @@ function savePaymentReceiptPNG(p){
   const inv=p.invoices,canvas=document.createElement("canvas");canvas.width=1200;canvas.height=1500;
   const ctx=canvas.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,1200,1500);
   ctx.fillStyle="#168f8a";ctx.fillRect(0,0,1200,250);
-  const logo=new Image();logo.onload=()=>drawReceipt();logo.onerror=()=>drawReceipt();logo.src="assets/bimbelfun-logo.png";
-  function drawReceipt(){
-   if(logo.naturalWidth){const scale=Math.min(190/logo.naturalWidth,150/logo.naturalHeight);ctx.drawImage(logo,80,48,logo.naturalWidth*scale,logo.naturalHeight*scale)}
-   ctx.fillStyle="#fff";ctx.font="bold 58px Arial";ctx.fillText("BIMBEL FUN",300,105);
-   ctx.font="28px Arial";ctx.fillText("Make Learning Fun",302,155);
-   ctx.fillStyle="#163b3a";ctx.font="bold 48px Arial";ctx.fillText("BUKTI PEMBAYARAN",80,350);
-   ctx.fillStyle="#168f8a";ctx.font="bold 28px Arial";ctx.fillText("PEMBAYARAN DITERIMA",80,405);
-   const rows=[["Nomor Invoice",inv.invoice_number||"-"],["Nama Murid",inv.students?.full_name||"-"],["Jumlah Diterima","Rp "+Number(p.amount||0).toLocaleString("id-ID")],["Tanggal Pembayaran",p.payment_date||"-"],["Metode Pembayaran",p.payment_method||"-"],["Referensi",p.reference||"-"],["Status","LUNAS"]];
-   let y=510;for(const [label,value] of rows){ctx.fillStyle="#6b7280";ctx.font="25px Arial";ctx.fillText(label,90,y);ctx.fillStyle="#183b39";ctx.font="bold 32px Arial";ctx.fillText(String(value).slice(0,48),90,y+48);ctx.strokeStyle="#dce9e7";ctx.beginPath();ctx.moveTo(90,y+72);ctx.lineTo(1110,y+72);ctx.stroke();y+=125}
-   ctx.fillStyle="#168f8a";ctx.font="bold 27px Arial";ctx.fillText("Terima kasih telah mempercayai BIMBEL FUN.",90,1430);
-   const a=document.createElement("a");a.download="Bukti-Pembayaran-"+String(inv.invoice_number||p.id||"BimbelFun")+".png";a.href=canvas.toDataURL("image/png");a.click();
-  }
+  ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(155,125,78,0,Math.PI*2);ctx.fill();ctx.fillStyle="#168f8a";ctx.font="bold 68px Arial";ctx.textAlign="center";ctx.fillText("BF",155,149);ctx.textAlign="left";
+  ctx.fillStyle="#fff";ctx.font="bold 58px Arial";ctx.fillText("BIMBEL FUN",285,105);ctx.font="28px Arial";ctx.fillText("Make Learning Fun",287,155);
+  ctx.fillStyle="#163b3a";ctx.font="bold 48px Arial";ctx.fillText("BUKTI PEMBAYARAN",80,350);
+  ctx.fillStyle="#168f8a";ctx.font="bold 28px Arial";ctx.fillText("PEMBAYARAN DITERIMA",80,405);
+  const rows=[["Nomor Invoice",inv.invoice_number||"-"],["Nama Murid",inv.students?.full_name||"-"],["Jumlah Diterima","Rp "+Number(p.amount||0).toLocaleString("id-ID")],["Tanggal Pembayaran",p.payment_date||"-"],["Metode Pembayaran",p.payment_method||"-"],["Referensi",p.reference||"-"],["Status","LUNAS"]];
+  let y=510;for(const [label,value] of rows){ctx.fillStyle="#6b7280";ctx.font="25px Arial";ctx.fillText(label,90,y);ctx.fillStyle="#183b39";ctx.font="bold 32px Arial";ctx.fillText(String(value).slice(0,48),90,y+48);ctx.strokeStyle="#dce9e7";ctx.beginPath();ctx.moveTo(90,y+72);ctx.lineTo(1110,y+72);ctx.stroke();y+=125}
+  ctx.fillStyle="#168f8a";ctx.font="bold 27px Arial";ctx.fillText("Terima kasih telah mempercayai BIMBEL FUN.",90,1430);
+  const a=document.createElement("a");a.download="Bukti-Pembayaran-"+String(inv.invoice_number||p.id||"BimbelFun")+".png";a.href=canvas.toDataURL("image/png");a.click();
  }
  function printPaymentReceipt(p){
   if(!p?.invoices){alert("Data invoice pembayaran tidak ditemukan.");return}
