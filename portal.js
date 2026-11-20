@@ -98,7 +98,7 @@ async function loadTutorAttendanceOptions(){
  addressInput.value=s.location||"";
  let packageQuery=db.from("student_packages").select("id,subject,package_meetings,used_meetings,status,class_id").eq("student_id",s.student_id).eq("tutor_id",tutorRecord.id).eq("status","active");if(s.subject)packageQuery=packageQuery.eq("subject",s.subject);if(s.class_id)packageQuery=packageQuery.or("class_id.is.null,class_id.eq."+s.class_id);const {data:pkgs,error}=await packageQuery;
  if(error){showMessage("Gagal memuat paket murid: "+error.message,true);return}
- packageSelect.innerHTML='<option value="">Pilih paket</option>'+(pkgs||[]).filter(p=>Number(p.used_meetings||0)<Number(p.package_meetings||0)).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.subject)+' — sisa '+(p.package_meetings-p.used_meetings)+' dari '+p.package_meetings+'</option>').join("");
+ packageSelect.innerHTML='<option value="">Pilih paket</option>'+(pkgs||[]).filter(p=>Number(p.used_meetings||0)<Number(p.package_meetings||0)).map(p=>'<option value="'+esc(p.id)+'">'+p.package_meetings+'x pertemuan — '+esc(p.subject)+' (sisa '+(p.package_meetings-p.used_meetings)+' dari '+p.package_meetings+')'+'</option>').join("");
 }
 async function loadTutorHistory(){
  const {data:history,error}=await db.from("attendance_records").select("attendance_date,check_in,check_out,status,subject,student_name_snapshot,class_name_snapshot,duration_minutes_snapshot,schedule_day_snapshot,students(full_name),schedule_id,schedules(duration_minutes,classes(class_name))").eq("tutor_id",tutorRecord.id).order("attendance_date",{ascending:false}).limit(60);
@@ -259,7 +259,7 @@ async function openClassScheduleForm(cfg,row=null){
  '<label>Jumlah murid kelompok (opsional)<select name="group_size"><option value="">Tidak ditentukan</option>'+[1,2,3,4,5].map(v=>'<option value="'+v+'" '+(Number(row?.group_size)===v?"selected":"")+'>'+v+' murid</option>').join("")+'</select></label>'+
  '<label>Hari belajar (pilih satu atau beberapa)<select id="classDays" name="days" multiple size="5" required>'+Object.entries(dayNames).map(([n,v])=>'<option value="'+n+'" '+(chosenDays.includes(Number(n))?"selected":"")+'>'+v+'</option>').join("")+'</select></label>'+
  '<label>Durasi per pertemuan<select name="duration_minutes" required>'+[60,90,120].map(v=>'<option value="'+v+'" '+(Number(firstSchedule.duration_minutes||60)===v?"selected":"")+'>'+v+' menit</option>').join("")+'</select></label>'+
- '<label>Lokasi / Alamat belajar<input name="location" type="text" value="'+esc(firstSchedule.location||"")+'" placeholder="Alamat tempat belajar"></label>'+
+ '<label>Alamat<input name="location" type="text" value="'+esc(firstSchedule.location||"")+'" placeholder="Alamat tempat belajar"></label>'+
  '<label>Paket Pertemuan<select id="classPackage" name="package_id" required><option value="">Pilih murid dan tentor terlebih dahulu</option></select></label>'+
  '<p class="portal-muted">Admin mengatur hari dan durasi. Jam mulai dan selesai tidak diisi di sini; Tentor mencatat waktu aktual melalui Presensi Masuk dan Presensi Pulang.</p>'+
  '<div class="portal-actions"><button class="portal-btn" type="submit">Simpan</button><button class="small-btn" type="button" id="cancelForm">Batal</button></div></form>';
