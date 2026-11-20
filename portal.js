@@ -263,12 +263,6 @@ async function openClassScheduleForm(cfg,row=null){
  '<div class="portal-actions"><button class="portal-btn" type="submit">Simpan</button><button class="small-btn" type="button" id="cancelForm">Batal</button></div></form>';
  const studentSelect=$("classStudent"),tutorSelect=$("classTutor");
  const selectedStudentId=row?.student_id||null;
- const existingPackage=async()=>{
-  if(!row?.id||!currentTutor||!selectedStudentId)return null;
-  const q=await db.from("student_packages").select("id").eq("class_id",row.id).eq("student_id",selectedStudentId).eq("tutor_id",currentTutor).eq("status","active").limit(1);
-  return q.data?.[0]?.id||null;
- };
- const existingPackageId=await existingPackage();
  async function refreshClassStudents(){
   const tid=tutorSelect.value;
   const eligible=(assignmentRows.data||[]).filter(x=>x.tutor_id===tid&&x.students?.id);
@@ -286,7 +280,7 @@ async function openClassScheduleForm(cfg,row=null){
  $("cancelForm").onclick=()=>{$("recordFormWrap").innerHTML=""};
  await refreshClassStudents();
  if(selectedStudentId)studentSelect.value=selectedStudentId;
- await refreshClassPackages();
+ 
  $("recordForm").onsubmit=async e=>{
   e.preventDefault();
   const fd=new FormData(e.currentTarget);
