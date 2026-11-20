@@ -195,9 +195,10 @@ async function loadRecords(cfg){
  if(cfg.table==="payments"){
   const {data,error}=await db.from("payments").select("id,invoice_id,amount,payment_date,payment_method,reference,notes,invoices(id,student_id,invoice_number,amount,due_date,status,students(full_name,guardian_phone))").order("created_at",{ascending:false}).limit(250);
   const head=$("recordHead"),body=$("recordRows");if(error){body.innerHTML='<tr><td>'+esc(error.message)+'</td></tr>';return}
-  head.innerHTML="<tr><th>Murid</th><th>No. Invoice</th><th>Jumlah</th><th>Tanggal</th><th>Metode</th><th>Referensi</th><th>WhatsApp Orang Tua</th><th>Aksi</th></tr>";
-  body.innerHTML=(data||[]).length?data.map(x=>"<tr><td>"+esc(x.invoices?.students?.full_name||"-")+"</td><td>"+esc(x.invoices?.invoice_number||"-")+"</td><td>Rp "+Number(x.amount||0).toLocaleString("id-ID")+"</td><td>"+esc(x.payment_date||"-")+"</td><td>"+esc(x.payment_method||"-")+"</td><td>"+esc(x.reference||"-")+"</td><td><button class=\"small-btn\" data-wa-payment=\""+x.id+"\">WhatsApp</button></td><td><button class=\"small-btn\" data-edit-payment=\""+x.id+"\">Edit</button> <button class=\"small-btn danger\" data-delete-payment=\""+x.id+"\">Hapus</button></td></tr>").join(""):'<tr><td colspan="8">Belum ada pembayaran.</td></tr>';
-  body.querySelectorAll("[data-wa-payment]").forEach(b=>b.onclick=()=>{const p=data.find(x=>x.id===b.dataset.waPayment);if(p?.invoices)shareInvoice(p.invoices)});
+   head.innerHTML="<tr><th>Murid</th><th>No. Invoice</th><th>Jumlah</th><th>Tanggal</th><th>Metode</th><th>Referensi</th><th>Bukti Pembayaran</th><th>WhatsApp Orang Tua</th><th>Aksi</th></tr>";
+   body.innerHTML=(data||[]).length?data.map(x=>"<tr><td>"+esc(x.invoices?.students?.full_name||"-")+"</td><td>"+esc(x.invoices?.invoice_number||"-")+"</td><td>Rp "+Number(x.amount||0).toLocaleString("id-ID")+"</td><td>"+esc(x.payment_date||"-")+"</td><td>"+esc(x.payment_method||"-")+"</td><td>"+esc(x.reference||"-")+"</td><td><button class='small-btn' data-receipt-png='"+x.id+"'>Simpan PNG</button> <button class='small-btn' data-receipt-print='"+x.id+"'>Cetak</button></td><td><button class='small-btn' data-wa-payment='"+x.id+"'>WhatsApp</button></td><td><button class='small-btn' data-edit-payment='"+x.id+"'>Edit</button> <button class='small-btn danger' data-delete-payment='"+x.id+"'>Hapus</button></td></tr>").join(""):'<tr><td colspan="9">Belum ada pembayaran.</td></tr>';
+   body.querySelectorAll("[data-receipt-png]").forEach(b=>b.onclick=()=>savePaymentReceiptPNG(data.find(x=>x.id===b.dataset.receiptPng)));body.querySelectorAll("[data-receipt-print]").forEach(b=>b.onclick=()=>printPaymentReceipt(data.find(x=>x.id===b.dataset.receiptPrint)));
+   body.querySelectorAll("[data-wa-payment]").forEach(b=>b.onclick=()=>{const p=data.find(x=>x.id===b.dataset.waPayment);if(p?.invoices)shareInvoice(p.invoices)});
   body.querySelectorAll("[data-edit-payment]").forEach(b=>{const p=data.find(x=>x.id===b.dataset.editPayment);b.onclick=()=>openRecordForm(cfg,{...p,student_id:p.invoices?.student_id||""})});
   body.querySelectorAll("[data-delete-payment]").forEach(b=>b.onclick=async()=>{const p=data.find(x=>x.id===b.dataset.deletePayment);if(!p)return;if(!confirm("Hapus catatan pembayaran ini? Invoice tetap disimpan dan statusnya akan dikembalikan menjadi belum dibayar jika tidak ada pembayaran lain."))return;const removed=await db.from("payments").delete().eq("id",p.id);if(removed.error){alert("Gagal menghapus pembayaran: "+removed.error.message);return}if(p.invoice_id){const remaining=await db.from("payments").select("id",{count:"exact",head:true}).eq("invoice_id",p.invoice_id);if(!remaining.error&&remaining.count===0){const reset=await db.from("invoices").update({status:"unpaid"}).eq("id",p.invoice_id);if(reset.error){alert("Pembayaran terhapus, tetapi status invoice gagal diperbarui: "+reset.error.message)}}}await loadRecords(cfg)});
   return;
@@ -337,7 +338,27 @@ function saveInvoicePNG(x){
  ctx.fillStyle="#168f8a";ctx.font="bold 30px Arial";ctx.fillText("Terima kasih telah mempercayai BIMBEL FUN.",90,1320);
  const a=document.createElement("a");a.download="Invoice-"+String(x.invoice_number||"BimbelFun")+".png";a.href=canvas.toDataURL("image/png");a.click();
 }
-function normalizeWhatsAppPhone(value){
+function savePaymentReceiptPNG(p){
+  if(!p?.invoices){alert("Data invoice pembayaran tidak ditemukan.");return}
+  const inv=p.invoices,canvas=document.createElement("canvas");canvas.width=1200;canvas.height=1500;
+  const ctx=canvas.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,1200,1500);
+  ctx.fillStyle="#168f8a";ctx.fillRect(0,0,1200,250);
+  ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(155,125,78,0,Math.PI*2);ctx.fill();ctx.fillStyle="#168f8a";ctx.font="bold 68px Arial";ctx.textAlign="center";ctx.fillText("BF",155,149);ctx.textAlign="left";
+  ctx.fillStyle="#fff";ctx.font="bold 58px Arial";ctx.fillText("BIMBEL FUN",285,105);ctx.font="28px Arial";ctx.fillText("Make Learning Fun",287,155);
+  ctx.fillStyle="#163b3a";ctx.font="bold 48px Arial";ctx.fillText("BUKTI PEMBAYARAN",80,350);
+  ctx.fillStyle="#168f8a";ctx.font="bold 28px Arial";ctx.fillText("PEMBAYARAN DITERIMA",80,405);
+  const rows=[["Nomor Invoice",inv.invoice_number||"-"],["Nama Murid",inv.students?.full_name||"-"],["Jumlah Diterima","Rp "+Number(p.amount||0).toLocaleString("id-ID")],["Tanggal Pembayaran",p.payment_date||"-"],["Metode Pembayaran",p.payment_method||"-"],["Referensi",p.reference||"-"],["Status","LUNAS"]];
+  let y=510;for(const [label,value] of rows){ctx.fillStyle="#6b7280";ctx.font="25px Arial";ctx.fillText(label,90,y);ctx.fillStyle="#183b39";ctx.font="bold 32px Arial";ctx.fillText(String(value).slice(0,48),90,y+48);ctx.strokeStyle="#dce9e7";ctx.beginPath();ctx.moveTo(90,y+72);ctx.lineTo(1110,y+72);ctx.stroke();y+=125}
+  ctx.fillStyle="#168f8a";ctx.font="bold 27px Arial";ctx.fillText("Terima kasih telah mempercayai BIMBEL FUN.",90,1430);
+  const a=document.createElement("a");a.download="Bukti-Pembayaran-"+String(inv.invoice_number||p.id||"BimbelFun")+".png";a.href=canvas.toDataURL("image/png");a.click();
+ }
+ function printPaymentReceipt(p){
+  if(!p?.invoices){alert("Data invoice pembayaran tidak ditemukan.");return}
+  const inv=p.invoices,w=window.open("","_blank");if(!w){alert("Izinkan pop-up untuk mencetak bukti pembayaran.");return}
+  w.document.write('<html><head><title>Bukti Pembayaran '+esc(inv.invoice_number)+'</title><style>body{font:16px Arial;padding:36px;color:#183b39;max-width:720px;margin:auto}header{background:#168f8a;color:#fff;padding:24px;border-radius:12px}header img{max-width:110px;max-height:75px;vertical-align:middle;margin-right:18px}h1{display:inline-block;font-size:28px}h2{margin-top:36px;color:#168f8a}.row{padding:14px 0;border-bottom:1px solid #dce9e7}.label{color:#6b7280}.value{font-weight:bold;float:right}</style></head><body><header><img src="assets/bimbelfun-logo.png" alt="Bimbel Fun"><h1>BIMBEL FUN</h1></header><h2>BUKTI PEMBAYARAN</h2>'+[['Nomor Invoice',inv.invoice_number||"-"],['Nama Murid',inv.students?.full_name||"-"],['Jumlah Diterima',"Rp "+Number(p.amount||0).toLocaleString("id-ID")],['Tanggal Pembayaran',p.payment_date||"-"],['Metode Pembayaran',p.payment_method||"-"],['Referensi',p.reference||"-"],['Status',"LUNAS"]].map(([k,v])=>'<div class="row"><span class="label">'+esc(k)+'</span><span class="value">'+esc(v)+'</span></div>').join("")+'<p style="margin-top:40px;color:#168f8a">Terima kasih telah mempercayai Bimbel Fun.</p></body></html>');
+  w.document.close();w.onload=()=>w.print();
+ }
+ function normalizeWhatsAppPhone(value){
  let phone=String(value||"").replace(/\D/g,"");
  if(phone.startsWith("00"))phone=phone.slice(2);
  if(phone.startsWith("0"))phone="62"+phone.slice(1);
