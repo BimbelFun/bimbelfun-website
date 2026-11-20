@@ -173,7 +173,7 @@ begin
     set status = 'inactive'
     where class_id = v_class_id and student_id <> p_student_id;
   else
-    if v_active_student_count + case when v_selected_student_active then 0 else 1 end > p_group_size then
+    if (v_active_student_count + (case when v_selected_student_active then 0 else 1 end)) > p_group_size then
       raise exception 'Jumlah anggota aktif melebihi kapasitas kelompok yang dipilih.';
     end if;
     -- Anggota lain tetap aktif untuk kelas kelompok.
