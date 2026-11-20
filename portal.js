@@ -48,25 +48,25 @@ async function loadTutor(uid){
  const {data:t,error}=await db.from("tutors").select("id,full_name").eq("profile_user_id",uid).single();
  if(error||!t){showMessage("Akun belum terhubung dengan data tutors melalui profile_user_id.",true);return}
  tutorRecord=t;
- const {data:assignments,error:assignmentError}=await db.from("class_tutors").select("classes(id,class_name,student_id,class_grade,class_day,group_size,students(full_name,school_name),schedules(id,day_of_week,start_time,end_time,location,duration_minutes,subject,is_active))").eq("tutor_id",t.id).eq("is_active",true);
+ const {data:assignments,error:assignmentError}=await db.from("class_tutors").select("classes(id,class_name,student_id,class_grade,class_day,group_size,students(full_name,school_name,address),schedules(id,day_of_week,start_time,end_time,location,duration_minutes,subject,is_active))").eq("tutor_id",t.id).eq("is_active",true);
  if(assignmentError){showMessage("Gagal memuat jadwal: "+assignmentError.message,true);return}
  const dayNames=["","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu","Minggu"];
- const directResult=await db.from("tutor_students").select("students(id,full_name,education_level,school_name)").eq("tutor_id",t.id);
+ const directResult=await db.from("tutor_students").select("students(id,full_name,education_level,school_name,address)").eq("tutor_id",t.id);
  const summary=$("tutorAssignmentsSummary");
- if(summary){const classCards=(assignments||[]).map(a=>{const c=a.classes;if(!c)return "";const days=String(c.class_day||"").split(",").map(x=>x.trim()).filter(Boolean).join(", ")||"Jadwal belum diisi";return '<article class="stat-card"><strong>'+esc(c.class_name)+'</strong><span>Kelas: '+esc(c.class_grade||"-")+'</span><span>Hari: '+esc(days)+'</span><span>Kelompok: '+esc(c.group_size?c.group_size+" murid":"-")+'</span><span>Murid: '+esc(c.students?.full_name||"Kelompok belajar (anggota belum ditentukan)")+'</span><span>Sekolah: '+esc(c.students?.school_name||"-")+'</span></article>'}).join("");const directCards=(directResult.data||[]).map(x=>'<article class="stat-card"><strong>'+esc(x.students?.full_name||"-")+'</strong><span>Penugasan langsung</span><span>Kelas: '+esc(x.students?.education_level||"-")+'</span><span>Sekolah: '+esc(x.students?.school_name||"-")+'</span></article>').join("");summary.innerHTML=classCards+directCards||( '<p class="portal-muted">Belum ada murid atau jadwal yang ditugaskan.</p>');}
+ if(summary){const classCards=(assignments||[]).map(a=>{const c=a.classes;if(!c)return "";const days=String(c.class_day||"").split(",").map(x=>x.trim()).filter(Boolean).join(", ")||"Jadwal belum diisi";return '<article class="stat-card"><strong>'+esc(c.class_name)+'</strong><span>Kelas: '+esc(c.class_grade||"-")+'</span><span>Hari: '+esc(days)+'</span><span>Kelompok: '+esc(c.group_size?c.group_size+" murid":"-")+'</span><span>Murid: '+esc(c.students?.full_name||"Kelompok belajar (anggota belum ditentukan)")+'</span><span>Sekolah: '+esc(c.students?.school_name||"-")+'</span><span>Alamat: '+esc(c.students?.address||"-")+'</span></article>'}).join("");const directCards=(directResult.data||[]).map(x=>'<article class="stat-card"><strong>'+esc(x.students?.full_name||"-")+'</strong><span>Penugasan langsung</span><span>Kelas: '+esc(x.students?.education_level||"-")+'</span><span>Sekolah: '+esc(x.students?.school_name||"-")+'</span><span>Alamat: '+esc(x.students?.address||"-")+'</span></article>').join("");summary.innerHTML=classCards+directCards||( '<p class="portal-muted">Belum ada murid atau jadwal yang ditugaskan.</p>');}
  tutorSchedules=(assignments||[]).flatMap(a=>(a.classes?.schedules||[]).map(s=>({...s,class_name:a.classes.class_name,class_id:a.classes.id})));
  const studentSelect=$("tutorStudent"),scheduleSelect=$("tutorSchedule");
  const assignedStudents=new Map();
  (directResult.data||[]).forEach(x=>{if(x.students?.id)assignedStudents.set(x.students.id,x.students)});
  const classIds=(assignments||[]).map(a=>a.classes?.id).filter(Boolean);
  let classStudentLinks=[];
- if(classIds.length){const links=await db.from("class_students").select("class_id,student_id,status,students(id,full_name,education_level,school_name)").in("class_id",classIds);if(!links.error)classStudentLinks=links.data||[];}
+ if(classIds.length){const links=await db.from("class_students").select("class_id,student_id,status,students(id,full_name,education_level,school_name,address)").in("class_id",classIds);if(!links.error)classStudentLinks=links.data||[];}
  tutorSchedules=(assignments||[]).flatMap(a=>{
   const cl=a.classes;if(!cl)return [];
   const linked=classStudentLinks.filter(x=>x.class_id===cl.id&&!["inactive","nonaktif","removed"].includes(String(x.status||"active").toLowerCase())).map(x=>x.students).filter(Boolean);
   const members=linked.length?linked:(cl.student_id&&cl.students?.full_name?[{id:cl.student_id,...cl.students}]:[]);
   members.forEach(st=>{if(st?.id)assignedStudents.set(st.id,st)});
-  return (cl.schedules||[]).filter(s=>s.is_active!==false).flatMap(s=>members.map(st=>({...s,class_name:cl.class_name,class_id:cl.id,student_id:st.id,student_name:st.full_name,school_name:st.school_name,education_level:st.education_level})));
+  return (cl.schedules||[]).filter(s=>s.is_active!==false).flatMap(s=>members.map(st=>({...s,class_name:cl.class_name,class_id:cl.id,student_id:st.id,student_name:st.full_name,school_name:st.school_name,student_address:st.address,education_level:st.education_level})));
  });
  studentSelect.innerHTML='<option value="">Pilih murid terlebih dahulu</option>'+[...assignedStudents.values()].sort((a,b)=>a.full_name.localeCompare(b.full_name,"id")).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.full_name)+'</option>').join("");
  scheduleSelect.innerHTML='<option value="">Pilih murid dahulu</option>';scheduleSelect.disabled=true;
@@ -78,7 +78,7 @@ async function loadTutor(uid){
   scheduleSelect.disabled=!sid;
   scheduleSelect.innerHTML='<option value="">'+(sid?(matches.length?'Pilih jadwal/pertemuan':'Belum ada jadwal untuk murid ini'):'Pilih murid dahulu')+'</option>'+
    matches.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.class_name)+' — '+esc(dayNames[s.day_of_week]||"")+' ('+esc(s.duration_minutes||60)+' menit)</option>').join("");
-  $("tutorSubject").value="";$("teachingAddress").value="";
+  $("tutorSubject").value="";
   $("tutorPackage").innerHTML='<option value="">Pilih jadwal dahulu</option>';
   $("checkInBtn").disabled=true;$("checkOutBtn").disabled=true;
   await refreshTutorAttendance();
@@ -91,11 +91,11 @@ async function loadTutor(uid){
 }
 async function loadTutorAttendanceOptions(){
  const s=tutorSchedules.find(x=>x.id===selectedScheduleId);
- const studentSelect=$("tutorStudent"),packageSelect=$("tutorPackage"),subjectSelect=$("tutorSubject"),addressInput=$("teachingAddress");
+ const studentSelect=$("tutorStudent"),packageSelect=$("tutorPackage"),subjectSelect=$("tutorSubject");
  if(!s){packageSelect.innerHTML='<option value="">Pilih jadwal dahulu</option>';return}
  studentSelect.value=s.student_id;
  subjectSelect.value=s.subject||"";
- addressInput.value=s.location||"";
+
  let packageQuery=db.from("student_packages").select("id,subject,package_meetings,used_meetings,status,class_id").eq("student_id",s.student_id).eq("tutor_id",tutorRecord.id).eq("status","active");if(s.subject)packageQuery=packageQuery.eq("subject",s.subject);if(s.class_id)packageQuery=packageQuery.or("class_id.is.null,class_id.eq."+s.class_id);const {data:pkgs,error}=await packageQuery;
  if(error){showMessage("Gagal memuat paket murid: "+error.message,true);return}
  packageSelect.innerHTML='<option value="">Pilih paket</option>'+(pkgs||[]).filter(p=>Number(p.used_meetings||0)<Number(p.package_meetings||0)).map(p=>'<option value="'+esc(p.id)+'">'+p.package_meetings+'x pertemuan — '+esc(p.subject)+' (sisa '+(p.package_meetings-p.used_meetings)+' dari '+p.package_meetings+')'+'</option>').join("");
@@ -204,11 +204,11 @@ async function loadRecords(cfg){
  }
  if(cfg.table==="student_packages"){const {data,error}=await db.from("student_packages").select("id,student_id,tutor_id,subject,package_meetings,used_meetings,price,purchased_at,expires_at,status,notes,students(full_name,education_level,school_name),tutors(full_name)").order("created_at",{ascending:false}).limit(250);const head=$("recordHead"),body=$("recordRows");if(error){body.innerHTML='<tr><td>'+esc(error.message)+'</td></tr>';return}head.innerHTML="<tr><th>Murid</th><th>Kelas</th><th>Sekolah</th><th>Tentor</th><th>Mapel</th><th>Pertemuan</th><th>Harga</th><th>Status</th><th>Aksi</th></tr>";body.innerHTML=(data||[]).map(x=>'<tr><td>'+esc(x.students?.full_name||"-")+'</td><td>'+esc(x.students?.education_level||"-")+'</td><td>'+esc(x.students?.school_name||"-")+'</td><td>'+esc(x.tutors?.full_name||"-")+'</td><td>'+esc(x.subject)+'</td><td>'+Number(x.used_meetings||0)+' / '+Number(x.package_meetings||0)+'</td><td>Rp '+Number(x.price||0).toLocaleString("id-ID")+'</td><td>'+esc(x.status)+'</td><td><button class="small-btn" data-edit="'+x.id+'">Ubah</button> <button class="small-btn danger" data-delete="'+x.id+'">Hapus</button></td></tr>').join("")||'<tr><td colspan="9">Belum ada paket.</td></tr>';body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openRecordForm(cfg,data.find(x=>x.id===b.dataset.edit)));body.querySelectorAll("[data-delete]").forEach(b=>b.onclick=async()=>{if(confirm("Hapus paket ini?")){const {error}=await db.from("student_packages").delete().eq("id",b.dataset.delete);if(error)alert(error.message);else await loadRecords(cfg)}});return}
  if(cfg.table==="classes"){
-  const {data,error}=await db.from("classes").select("id,class_name,student_id,subject,class_grade,class_day,group_size,education_level,learning_mode,status,students(full_name),schedules(id,day_of_week,start_time,end_time,location,subject,duration_minutes,is_active),class_tutors(tutor_id,is_active,tutors(full_name))").order("class_name");
+  const {data,error}=await db.from("classes").select("id,class_name,student_id,subject,class_grade,class_day,group_size,education_level,learning_mode,status,students(full_name,address),schedules(id,day_of_week,start_time,end_time,subject,duration_minutes,is_active),class_tutors(tutor_id,is_active,tutors(full_name))").order("class_name");
   const head=$("recordHead"),body=$("recordRows");if(error){body.innerHTML='<tr><td>'+esc(error.message)+'</td></tr>';return}
-  head.innerHTML="<tr><th>Murid</th><th>Tentor</th><th>Hari</th><th>Mata Pelajaran</th><th>Kelas</th><th>Jadwal / Durasi</th><th>Lokasi</th><th>Aksi</th></tr>";
+  head.innerHTML="<tr><th>Murid</th><th>Tentor</th><th>Hari</th><th>Mata Pelajaran</th><th>Kelas</th><th>Jadwal / Durasi</th><th>Alamat murid</th><th>Aksi</th></tr>";
   const days=["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
-  body.innerHTML=(data||[]).length?data.map(r=>{const sch=r.schedules||[];const tutors=(r.class_tutors||[]).map(t=>t.tutors?.full_name).filter(Boolean).join(", ")||"-";return "<tr><td>"+esc(r.students?.full_name||r.class_name)+"</td><td>"+esc(tutors)+"</td><td>"+esc(r.class_day||sch.map(x=>days[Number(x.day_of_week)%7]||"-").join(", ")||"-")+"</td><td>"+esc(r.subject||sch.map(x=>x.subject).filter(Boolean).join(", ")||"-")+"</td><td>"+esc(r.class_grade||r.education_level||"-")+"</td><td>"+esc(sch.filter(x=>x.is_active!==false).map(x=>days[Number(x.day_of_week)%7]+" · "+(x.duration_minutes||60)+" menit").join(", ")||"-")+"</td><td>"+esc(sch.map(x=>x.location).filter(Boolean).join(", ")||"-")+"</td><td><button class=\"small-btn\" data-edit=\""+r.id+"\">Ubah</button></td></tr>"}).join(""):'<tr><td colspan="7">Belum ada data jadwal.</td></tr>';
+  body.innerHTML=(data||[]).length?data.map(r=>{const sch=r.schedules||[];const tutors=(r.class_tutors||[]).map(t=>t.tutors?.full_name).filter(Boolean).join(", ")||"-";return "<tr><td>"+esc(r.students?.full_name||r.class_name)+"</td><td>"+esc(tutors)+"</td><td>"+esc(r.class_day||sch.map(x=>days[Number(x.day_of_week)%7]||"-").join(", ")||"-")+"</td><td>"+esc(r.subject||sch.map(x=>x.subject).filter(Boolean).join(", ")||"-")+"</td><td>"+esc(r.class_grade||r.education_level||"-")+"</td><td>"+esc(sch.filter(x=>x.is_active!==false).map(x=>days[Number(x.day_of_week)%7]+" · "+(x.duration_minutes||60)+" menit").join(", ")||"-")+"</td><td>"+esc(r.students?.address||"-")+"</td><td><button class=\"small-btn\" data-edit=\""+r.id+"\">Ubah</button></td></tr>"}).join(""):'<tr><td colspan="7">Belum ada data jadwal.</td></tr>';
   body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openRecordForm(cfg,data.find(r=>r.id===b.dataset.edit)));return;
  }
  if(cfg.table==="tutor_students"){const {data,error}=await db.from("tutor_students").select("id,student_id,tutor_id,students(full_name),tutors(full_name)").order("created_at",{ascending:false}).limit(250);const head=$("recordHead"),body=$("recordRows");if(error){body.innerHTML='<tr><td>'+esc(error.message)+'</td></tr>';return}head.innerHTML="<tr><th>Nama Murid</th><th>Nama Tentor</th><th>Aksi</th></tr>";body.innerHTML=(data||[]).slice().sort((a,b)=>String(a.tutors?.full_name||"").localeCompare(String(b.tutors?.full_name||""),"id")||String(a.students?.full_name||"").localeCompare(String(b.students?.full_name||""),"id")).map(x=>'<tr><td>'+esc(x.students?.full_name||"-")+'</td><td>'+esc(x.tutors?.full_name||"-")+'</td><td><button class="small-btn" data-edit="'+x.id+'">Edit</button> <button class="small-btn danger" data-delete="'+x.id+'">Hapus</button></td></tr>').join("")||'<tr><td colspan="3">Belum ada penugasan.</td></tr>';body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openRecordForm(cfg,data.find(x=>x.id===b.dataset.edit)));body.querySelectorAll("[data-delete]").forEach(b=>b.onclick=async()=>{if(confirm("Hapus penugasan ini?")){const {error}=await db.from("tutor_students").delete().eq("id",b.dataset.delete);if(error)alert(error.message);else await loadRecords(cfg)}});return}
@@ -259,18 +259,10 @@ async function openClassScheduleForm(cfg,row=null){
  '<label>Jumlah murid kelompok (opsional)<select name="group_size"><option value="">Tidak ditentukan</option>'+[1,2,3,4,5].map(v=>'<option value="'+v+'" '+(Number(row?.group_size)===v?"selected":"")+'>'+v+' murid</option>').join("")+'</select></label>'+
  '<label>Hari belajar (pilih satu atau beberapa)<select id="classDays" name="days" multiple size="5" required>'+Object.entries(dayNames).map(([n,v])=>'<option value="'+n+'" '+(chosenDays.includes(Number(n))?"selected":"")+'>'+v+'</option>').join("")+'</select></label>'+
  '<label>Durasi per pertemuan<select name="duration_minutes" required>'+[60,90,120].map(v=>'<option value="'+v+'" '+(Number(firstSchedule.duration_minutes||60)===v?"selected":"")+'>'+v+' menit</option>').join("")+'</select></label>'+
- '<label>Alamat<input name="location" type="text" value="'+esc(firstSchedule.location||"")+'" placeholder="Alamat tempat belajar"></label>'+
- '<label>Paket Pertemuan<select id="classPackage" name="package_id" required><option value="">Pilih murid dan tentor terlebih dahulu</option></select></label>'+
  '<p class="portal-muted">Admin mengatur hari dan durasi. Jam mulai dan selesai tidak diisi di sini; Tentor mencatat waktu aktual melalui Presensi Masuk dan Presensi Pulang.</p>'+
  '<div class="portal-actions"><button class="portal-btn" type="submit">Simpan</button><button class="small-btn" type="button" id="cancelForm">Batal</button></div></form>';
- const studentSelect=$("classStudent"),tutorSelect=$("classTutor"),packageSelect=$("classPackage");
+ const studentSelect=$("classStudent"),tutorSelect=$("classTutor");
  const selectedStudentId=row?.student_id||null;
- const existingPackage=async()=>{
-  if(!row?.id||!currentTutor||!selectedStudentId)return null;
-  const q=await db.from("student_packages").select("id").eq("class_id",row.id).eq("student_id",selectedStudentId).eq("tutor_id",currentTutor).eq("status","active").limit(1);
-  return q.data?.[0]?.id||null;
- };
- const existingPackageId=await existingPackage();
  async function refreshClassStudents(){
   const tid=tutorSelect.value;
   const eligible=(assignmentRows.data||[]).filter(x=>x.tutor_id===tid&&x.students?.id);
@@ -282,26 +274,13 @@ async function openClassScheduleForm(cfg,row=null){
   studentSelect.innerHTML='<option value="">Pilih murid yang ditugaskan kepada Tentor</option>'+unique.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===(studentSelect.dataset.value||selectedStudentId)?"selected":"")+'>'+esc(x.full_name)+'</option>').join("");
   if(!tid){studentSelect.disabled=true;studentSelect.innerHTML='<option value="">Pilih Tentor terlebih dahulu</option>'}
   else studentSelect.disabled=false;
-  await refreshClassPackages();
- }
- async function refreshClassPackages(){
-  const sid=studentSelect.value,tid=tutorSelect.value;
-  packageSelect.innerHTML='<option value="">Memuat paket aktif...</option>';
-  if(!sid||!tid){packageSelect.innerHTML='<option value="">Pilih murid dan tentor terlebih dahulu</option>';return}
-  const subject=$("classSubject").value;if(!subject){packageSelect.innerHTML='<option value="">Pilih mata pelajaran terlebih dahulu</option>';return}let q=db.from("student_packages").select("id,subject,package_meetings,used_meetings,class_id").eq("student_id",sid).eq("tutor_id",tid).eq("subject",subject).eq("status","active");
-  if(row?.id)q=q.or("class_id.is.null,class_id.eq."+row.id);else q=q.is("class_id",null);
-  const result=await q.order("created_at",{ascending:false});
-  if(result.error){packageSelect.innerHTML='<option value="">Gagal memuat paket</option>';alert("Gagal memuat paket: "+result.error.message);return}
-  const packages=(result.data||[]).filter(p=>Number(p.used_meetings||0)<Number(p.package_meetings||0));
-  packageSelect.innerHTML='<option value="">Pilih paket aktif</option>'+packages.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.subject)+' — sisa '+(p.package_meetings-p.used_meetings)+' dari '+p.package_meetings+'</option>').join("");
-  if(existingPackageId&&sid===selectedStudentId&&tid===currentTutor)packageSelect.value=existingPackageId;
  }
  tutorSelect.onchange=async()=>{studentSelect.dataset.value="";await refreshClassStudents()};
- studentSelect.onchange=()=>{studentSelect.dataset.value=studentSelect.value;refreshClassPackages()};$("classSubject").onchange=()=>refreshClassPackages();
+ studentSelect.onchange=()=>{studentSelect.dataset.value=studentSelect.value};
  $("cancelForm").onclick=()=>{$("recordFormWrap").innerHTML=""};
  await refreshClassStudents();
  if(selectedStudentId)studentSelect.value=selectedStudentId;
- await refreshClassPackages();
+ 
  $("recordForm").onsubmit=async e=>{
   e.preventDefault();
   const fd=new FormData(e.currentTarget);
@@ -316,8 +295,8 @@ async function openClassScheduleForm(cfg,row=null){
    p_group_size:group?Number(group):null,
    p_days:days,
    p_duration_minutes:Number(fd.get("duration_minutes")),
-   p_location:fd.get("location")||null,
-   p_package_id:fd.get("package_id")
+   p_location:null,
+   p_package_id:null
   });
   if(result.error){alert("Gagal menyimpan Kelas & Jadwal: "+result.error.message);return}
   editId=null;$("recordFormWrap").innerHTML="";
@@ -415,7 +394,7 @@ $("loginForm").addEventListener("submit",async e=>{
  await loadSession(selectedLoginRole);
 });
 $("logoutBtn").addEventListener("click",async()=>{await db.auth.signOut();location.reload()});
-$("checkInBtn").addEventListener("click",async()=>{if(!tutorRecord||!selectedScheduleId)return;if(!$("tutorStudent").value){showMessage("Pilih murid yang diajar terlebih dahulu.",true);return}if(!$("tutorPackage").value){showMessage("Pilih paket pertemuan murid terlebih dahulu.",true);return}if(!$("teachingAddress").value.trim()){showMessage("Isi alamat tempat mengajar terlebih dahulu.",true);return}const schedule=tutorSchedules.find(x=>x.id===selectedScheduleId);const {error}=await db.from("attendance_records").insert({tutor_id:tutorRecord.id,schedule_id:selectedScheduleId,attendance_date:today(),check_in:new Date().toISOString(),status:"hadir",student_id:$("tutorStudent").value||null,package_id:$("tutorPackage").value||null,subject:$("tutorSubject").value||null,teaching_address:$("teachingAddress").value.trim()||null,student_name_snapshot:schedule?.student_name||null,class_name_snapshot:schedule?.class_name||null,schedule_day_snapshot:schedule?.day_of_week||null,duration_minutes_snapshot:schedule?.duration_minutes||null});if(error){showMessage(error.message,true);return}showMessage("Presensi masuk tersimpan.");await refreshTutorAttendance()});
+$("checkInBtn").addEventListener("click",async()=>{if(!tutorRecord||!selectedScheduleId)return;if(!$("tutorStudent").value){showMessage("Pilih murid yang diajar terlebih dahulu.",true);return}if(!$("tutorPackage").value){showMessage("Pilih paket pertemuan murid terlebih dahulu.",true);return}const schedule=tutorSchedules.find(x=>x.id===selectedScheduleId);const {error}=await db.from("attendance_records").insert({tutor_id:tutorRecord.id,schedule_id:selectedScheduleId,attendance_date:today(),check_in:new Date().toISOString(),status:"hadir",student_id:$("tutorStudent").value||null,package_id:$("tutorPackage").value||null,subject:$("tutorSubject").value||null,teaching_address:schedule?.student_address||null,student_name_snapshot:schedule?.student_name||null,class_name_snapshot:schedule?.class_name||null,schedule_day_snapshot:schedule?.day_of_week||null,duration_minutes_snapshot:schedule?.duration_minutes||null});if(error){showMessage(error.message,true);return}showMessage("Presensi masuk tersimpan.");await refreshTutorAttendance()});
 $("checkOutBtn").addEventListener("click",async()=>{if(!tutorRecord||!selectedScheduleId)return;const {error}=await db.from("attendance_records").update({check_out:new Date().toISOString()}).eq("tutor_id",tutorRecord.id).eq("schedule_id",selectedScheduleId).eq("student_id",$("tutorStudent").value).eq("attendance_date",today());if(error){showMessage(error.message,true);return}showMessage("Presensi pulang tersimpan.");await refreshTutorAttendance()});
 db.auth.onAuthStateChange((_event,session)=>{if(!session){currentUser=null;if(realtimeChannel){db.removeChannel(realtimeChannel);realtimeChannel=null;}$("appPanel").classList.add("portal-hidden");if(selectedLoginRole)$("loginPanel").classList.remove("portal-hidden")}});
 (async()=>{$("appPanel").classList.add("portal-hidden");if(selectedLoginRole){$("loginPanel").classList.remove("portal-hidden");await loadSession(selectedLoginRole);}else{$("loginPanel").classList.add("portal-hidden");loginMessage("Jenis login tidak ditemukan. Gunakan tautan login dari halaman utama.");}})();
