@@ -309,6 +309,7 @@ grant select,insert,update,delete on public.student_progress_reports to authenti
 -- 4) Tutor payrolls. Rate is snapshotted per monthly invoice and can be adjusted by Admin.
 create table if not exists public.tutor_payrolls (
  id uuid primary key default gen_random_uuid(),
+ invoice_number text not null unique default ('BF-GAJI-' || upper(substr(replace(gen_random_uuid()::text,'-',''),1,12))),
  tutor_id uuid not null references public.tutors(id) on delete restrict,
  period_start date not null,
  period_end date not null,
