@@ -27,6 +27,12 @@ returns trigger language plpgsql security definer set search_path=public
 as $$
 declare v_tutor_id uuid; v_date date;
 begin
+  if TG_OP='UPDATE' and exists (
+    select 1 from public.attendance_monthly_closures c
+    where c.tutor_id=old.tutor_id and c.period_start=date_trunc('month',old.attendance_date)::date
+  ) then
+    raise exception 'Rekap presensi bulan ini sudah ditutup. Admin harus membuka kembali arsip sebelum mengubah presensi.';
+  end if;
   v_tutor_id := case when TG_OP='DELETE' then old.tutor_id else new.tutor_id end;
   v_date := case when TG_OP='DELETE' then old.attendance_date else new.attendance_date end;
   if exists (
@@ -169,13 +175,6 @@ drop policy if exists "tutor read assigned video task targets" on public.tutor_v
 create policy "tutor read assigned video task targets" on public.tutor_video_task_targets for select to authenticated using(
  exists(select 1 from public.tutors t where t.id=tutor_id and t.profile_user_id=auth.uid())
  or exists(select 1 from public.tutor_group_members gm join public.tutors t on t.id=gm.tutor_id
-   where gm.group_id=tutor_group_id and t.profile_user_id=auth.uid())
-);
--- The policy above uses group_id (the target's group identifier).
-drop policy if exists "tutor read assigned video task targets" on public.tutor_video_task_targets;
-create policy "tutor read assigned video task targets" on public.tutor_video_task_targets for select to authenticated using(
- exists(select 1 from public.tutors t where t.id=tutor_id and t.profile_user_id=auth.uid())
- or exists(select 1 from public.tutor_group_members gm join public.tutors t on t.id=gm.tutor_id
    where gm.group_id=tutor_video_task_targets.group_id and t.profile_user_id=auth.uid())
 );
 drop policy if exists "admin manage video submissions" on public.tutor_video_submissions;
@@ -205,7 +204,11 @@ using(exists(select 1 from public.tutor_video_task_targets x where x.id=target_i
   or exists(select 1 from public.tutor_group_members gm join public.tutors t on t.id=gm.tutor_id
     where gm.group_id=x.group_id and t.profile_user_id=auth.uid())
 )))
-with check(submitted_by=auth.uid());
+with check(submitted_by=auth.uid() and exists(select 1 from public.tutor_video_task_targets x where x.id=target_id and (
+  exists(select 1 from public.tutors t where t.id=x.tutor_id and t.profile_user_id=auth.uid())
+  or exists(select 1 from public.tutor_group_members gm join public.tutors t on t.id=gm.tutor_id
+    where gm.group_id=x.group_id and t.profile_user_id=auth.uid())
+)));
 grant select,insert,update,delete on public.tutor_groups,public.tutor_group_members,public.tutor_video_tasks,
  public.tutor_video_task_targets,public.tutor_video_submissions to authenticated;
 
