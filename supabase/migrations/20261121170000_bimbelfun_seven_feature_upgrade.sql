@@ -294,10 +294,13 @@ create or replace function public.bimbelfun_guard_progress_report_sharing()
 returns trigger language plpgsql security definer set search_path=public
 as $fn$
 begin
- if not public.bimbelfun_is_admin() and (
-   (TG_OP='INSERT' and (new.shared_to_parent or new.shared_at is not null))
-   or (TG_OP='UPDATE' and (new.shared_to_parent is distinct from old.shared_to_parent or new.shared_at is distinct from old.shared_at))
- ) then raise exception 'Hanya Admin yang dapat menandai laporan sudah dibagikan kepada orang tua.'; end if;
+ if not public.bimbelfun_is_admin() then
+  if TG_OP='INSERT' and (new.shared_to_parent or new.shared_at is not null) then
+   raise exception 'Hanya Admin yang dapat menandai laporan sudah dibagikan kepada orang tua.';
+  elsif TG_OP='UPDATE' and (new.shared_to_parent is distinct from old.shared_to_parent or new.shared_at is distinct from old.shared_at) then
+   raise exception 'Hanya Admin yang dapat menandai laporan sudah dibagikan kepada orang tua.';
+  end if;
+ end if;
  new.updated_at=now();
  return new;
 end;
