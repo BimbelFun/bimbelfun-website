@@ -24,7 +24,7 @@ grant select, insert, delete on public.attendance_monthly_closures to authentica
 
 create or replace function public.bimbelfun_guard_closed_attendance_month()
 returns trigger language plpgsql security definer set search_path=public
-as $$
+as $fn$
 declare v_tutor_id uuid; v_date date;
 begin
   if TG_OP='UPDATE' and exists (
@@ -44,7 +44,7 @@ begin
   end if;
   if TG_OP='DELETE' then return old; else return new; end if;
 end;
-$$;
+$fn$;
 drop trigger if exists attendance_guard_closed_month on public.attendance_records;
 create trigger attendance_guard_closed_month
 before insert or update or delete on public.attendance_records
@@ -52,7 +52,7 @@ for each row execute function public.bimbelfun_guard_closed_attendance_month();
 
 create or replace function public.bimbelfun_admin_close_attendance_month(p_tutor_id uuid, p_period_start date)
 returns uuid language plpgsql security definer set search_path=public
-as $$
+as $fn$
 declare v_id uuid; v_end date;
 begin
   if not public.bimbelfun_is_admin() then raise exception 'Hanya Admin yang dapat menutup rekap presensi.'; end if;
@@ -68,18 +68,18 @@ begin
   returning id into v_id;
   return v_id;
 end;
-$$;
+$fn$;
 grant execute on function public.bimbelfun_admin_close_attendance_month(uuid,date) to authenticated;
 
 create or replace function public.bimbelfun_admin_reopen_attendance_month(p_tutor_id uuid, p_period_start date)
 returns boolean language plpgsql security definer set search_path=public
-as $$
+as $fn$
 begin
   if not public.bimbelfun_is_admin() then raise exception 'Hanya Admin yang dapat membuka kembali rekap presensi.'; end if;
   delete from public.attendance_monthly_closures where tutor_id=p_tutor_id and period_start=p_period_start;
   return found;
 end;
-$$;
+$fn$;
 grant execute on function public.bimbelfun_admin_reopen_attendance_month(uuid,date) to authenticated;
 
 -- Admin may correct/delete attendance rows; closed periods remain protected by the trigger above.
@@ -135,7 +135,7 @@ create or replace function public.bimbelfun_admin_create_video_task(
  p_title text,p_instructions text,p_due_at timestamptz,p_assignment_type text,p_tutor_ids uuid[],p_group_name text default null
 )
 returns uuid language plpgsql security definer set search_path=public
-as $
+as $fn$
 declare v_task_id uuid; v_group_id uuid; v_tutor_id uuid; v_count integer;
 begin
  if not public.bimbelfun_is_admin() then raise exception 'Hanya Admin yang dapat membuat tugas video.'; end if;
@@ -162,7 +162,7 @@ begin
  end if;
  return v_task_id;
 end;
-$;
+$fn$;
 grant execute on function public.bimbelfun_admin_create_video_task(text,text,timestamptz,text,uuid[],text) to authenticated;
 
 create index if not exists tutor_video_targets_task_idx on public.tutor_video_task_targets(task_id);
@@ -248,7 +248,7 @@ grant select,insert,update,delete on public.tutor_groups,public.tutor_group_memb
 
 create or replace function public.bimbelfun_guard_tutor_submission_review_fields()
 returns trigger language plpgsql security definer set search_path=public
-as $$
+as $fn$
 begin
  if not public.bimbelfun_is_admin() and (
    (new.status is distinct from old.status and not (old.status='revision' and new.status='submitted')) or new.admin_comment is distinct from old.admin_comment
@@ -257,7 +257,7 @@ begin
  new.updated_at=now();
  return new;
 end;
-$$;
+$fn$;
 drop trigger if exists tutor_video_submission_review_guard on public.tutor_video_submissions;
 create trigger tutor_video_submission_review_guard before update on public.tutor_video_submissions
 for each row execute function public.bimbelfun_guard_tutor_submission_review_fields();
@@ -292,7 +292,7 @@ with check(exists(select 1 from public.tutors t where t.id=tutor_id and t.profil
  and public.bimbelfun_tutor_has_student(student_id));
 create or replace function public.bimbelfun_guard_progress_report_sharing()
 returns trigger language plpgsql security definer set search_path=public
-as $
+as $fn$
 begin
  if not public.bimbelfun_is_admin() and (
    (TG_OP='INSERT' and (new.shared_to_parent or new.shared_at is not null))
@@ -301,7 +301,7 @@ begin
  new.updated_at=now();
  return new;
 end;
-$;
+$fn$;
 drop trigger if exists student_progress_report_sharing_guard on public.student_progress_reports;
 create trigger student_progress_report_sharing_guard before insert or update on public.student_progress_reports
 for each row execute function public.bimbelfun_guard_progress_report_sharing();
@@ -341,7 +341,7 @@ create or replace function public.bimbelfun_admin_generate_tutor_payroll(
  p_tutor_id uuid,p_period_start date,p_rate_per_session numeric,p_adjustment_amount numeric default 0,p_adjustment_note text default null
 )
 returns uuid language plpgsql security definer set search_path=public
-as $$
+as $fn$
 declare v_end date; v_count integer; v_base numeric(12,2); v_net numeric(12,2); v_id uuid;
 begin
  if not public.bimbelfun_is_admin() then raise exception 'Hanya Admin yang dapat membuat invoice gaji.'; end if;
@@ -371,7 +371,7 @@ begin
  if v_id is null then raise exception 'Invoice gaji sudah dibayar. Buka kembali secara khusus sebelum membuat ulang.'; end if;
  return v_id;
 end;
-$$;
+$fn$;
 grant execute on function public.bimbelfun_admin_generate_tutor_payroll(uuid,date,numeric,numeric,text) to authenticated;
 
 -- 5) Bank Soal owned by a tutor with Admin-approved cross-tutor access.
@@ -416,7 +416,7 @@ grant select,insert,update,delete on public.tutor_bank_question_catalog to authe
 
 create or replace function public.bimbelfun_sync_bank_question_catalog()
 returns trigger language plpgsql security definer set search_path=public
-as $
+as $fn$
 begin
  if TG_OP='DELETE' then delete from public.tutor_bank_question_catalog where id=old.id; return old; end if;
  insert into public.tutor_bank_question_catalog(id,owner_tutor_id,title,education_level,grade,subject,topic,created_at)
@@ -425,7 +425,7 @@ begin
   education_level=excluded.education_level,grade=excluded.grade,subject=excluded.subject,topic=excluded.topic;
  return new;
 end;
-$;
+$fn$;
 drop trigger if exists tutor_bank_question_catalog_sync on public.tutor_bank_questions;
 create trigger tutor_bank_question_catalog_sync after insert or update or delete on public.tutor_bank_questions
 for each row execute function public.bimbelfun_sync_bank_question_catalog();
@@ -493,7 +493,7 @@ grant select,insert,delete on public.tutor_bank_access_grants to authenticated;
 
 create or replace function public.bimbelfun_admin_review_bank_access_request(p_request_id uuid,p_approve boolean,p_admin_note text default null)
 returns boolean language plpgsql security definer set search_path=public
-as $$
+as $fn$
 declare v_question uuid; v_tutor uuid;
 begin
  if not public.bimbelfun_is_admin() then raise exception 'Hanya Admin yang dapat memproses permintaan akses Bank Soal.'; end if;
@@ -510,7 +510,7 @@ begin
  end if;
  return true;
 end;
-$$;
+$fn$;
 grant execute on function public.bimbelfun_admin_review_bank_access_request(uuid,boolean,text) to authenticated;
 
 -- 6) Package metadata: only group-learning packages may omit price/date.
@@ -519,7 +519,7 @@ alter table public.student_packages alter column purchased_at drop not null;
 
 create or replace function public.bimbelfun_validate_student_package()
 returns trigger language plpgsql security definer set search_path=public
-as $$
+as $fn$
 declare v_group boolean := false;
 begin
  if new.class_id is not null then
@@ -540,7 +540,7 @@ begin
  end if;
  return new;
 end;
-$$;
+$fn$;
 drop trigger if exists student_packages_validate_group_learning on public.student_packages;
 create trigger student_packages_validate_group_learning before insert or update on public.student_packages
 for each row execute function public.bimbelfun_validate_student_package();
