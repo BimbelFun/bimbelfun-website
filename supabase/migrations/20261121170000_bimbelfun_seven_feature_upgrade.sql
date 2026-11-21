@@ -197,7 +197,7 @@ create policy "admin manage video task targets" on public.tutor_video_task_targe
 using(public.bimbelfun_is_admin()) with check(public.bimbelfun_is_admin());
 drop policy if exists "tutor read assigned video task targets" on public.tutor_video_task_targets;
 create policy "tutor read assigned video task targets" on public.tutor_video_task_targets for select to authenticated using(
- exists(select 1 from public.tutors t where t.id=tutor_id and t.profile_user_id=auth.uid())
+ exists(select 1 from public.tutors t where t.id=tutor_video_task_targets.tutor_id and t.profile_user_id=auth.uid())
  or exists(select 1 from public.tutor_group_members gm join public.tutors t on t.id=gm.tutor_id
    where gm.group_id=tutor_video_task_targets.group_id and t.profile_user_id=auth.uid())
 );
