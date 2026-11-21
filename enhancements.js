@@ -71,11 +71,11 @@ async function renderAdminVideoTasks(){
  root.innerHTML="<h2>Tugas Konten Video</h2><p class='portal-muted'>Buat tugas individu atau kelompok. Tugas kelompok harus berisi tepat 7 Tentor dan cukup mengumpulkan satu video.</p><div id='bfTaskFormWrap'></div><div id='bfTaskList'></div><h3>Pengumpulan dan Penilaian</h3><div id='bfSubmissionList'>Memuat...</div>";
  const {data:tutors,error}=await db.from("tutors").select("id,full_name").order("full_name");
  if(error){byId("bfTaskFormWrap").textContent=error.message;return;}
- const options=(tutors||[]).map(t=>"<option value='"+t.id+"'>"+safe(t.full_name)+"</option>").join("");
- byId("bfTaskFormWrap").innerHTML="<form id='bfTaskForm' class='admin-form'><h3>Buat Tugas Baru</h3><label>Judul tugas<input name='title' required></label><label>Instruksi<textarea name='instructions' rows='3' required></textarea></label><label>Batas waktu<input name='due_at' type='datetime-local'></label><label>Jenis tugas<select name='assignment_type' id='bfTaskType'><option value='individual'>Individu</option><option value='group'>Kelompok (7 Tentor)</option></select></label><label id='bfGroupNameWrap' class='portal-hidden'>Nama kelompok<input name='group_name' placeholder='Contoh: Kelompok A'></label><label>Pilih Tentor<select name='tutor_ids' id='bfTaskTutors' multiple size='7' required>"+options+"</select><small class='portal-muted'>Pilih satu atau beberapa Tentor. Untuk kelompok, pilih tepat 7 orang.</small></label><div class='portal-actions'><button class='portal-btn' type='submit'>Buat Tugas</button></div><p id='bfTaskMessage' class='portal-muted'></p></form>";
+ const options=(tutors||[]).map(t=>"<label class='bf-tutor-choice'><input type='checkbox' name='tutor_ids' value='"+t.id+"'> "+safe(t.full_name)+"</label>").join("");
+ byId("bfTaskFormWrap").innerHTML="<form id='bfTaskForm' class='admin-form'><h3>Buat Tugas Baru</h3><label>Judul tugas<input name='title' required></label><label>Instruksi<textarea name='instructions' rows='3' required></textarea></label><label>Batas waktu<input name='due_at' type='datetime-local'></label><label>Jenis tugas<select name='assignment_type' id='bfTaskType'><option value='individual'>Individu</option><option value='group'>Kelompok (7 Tentor)</option></select></label><label id='bfGroupNameWrap' class='portal-hidden'>Nama kelompok<input name='group_name' placeholder='Contoh: Kelompok A'></label><fieldset class='bf-tutor-choices'><legend>Pilih Tentor</legend><div id='bfTaskTutors'>"+options+"</div><small class='portal-muted'>Pilih satu atau beberapa Tentor. Untuk kelompok, pilih tepat 7 orang.</small></fieldset><div class='portal-actions'><button class='portal-btn' type='submit'>Buat Tugas</button></div><p id='bfTaskMessage' class='portal-muted'></p></form>";
  byId("bfTaskType").onchange=()=>byId("bfGroupNameWrap").classList.toggle("portal-hidden",byId("bfTaskType").value!=="group");
  byId("bfTaskForm").onsubmit=async e=>{
-  e.preventDefault();const fd=new FormData(e.currentTarget),ids=[...byId("bfTaskTutors").selectedOptions].map(x=>x.value);
+  e.preventDefault();const fd=new FormData(e.currentTarget),ids=fd.getAll("tutor_ids");
   if(!ids.length){byId("bfTaskMessage").textContent="Pilih Tentor terlebih dahulu.";return;}
   if(fd.get("assignment_type")==="group"&&ids.length!==7){byId("bfTaskMessage").textContent="Tugas kelompok harus terdiri dari tepat 7 Tentor.";return;}
   const due=fd.get("due_at")?new Date(fd.get("due_at")).toISOString():null;
@@ -132,7 +132,7 @@ async function renderAdminAttendance(){
   const m=byId("bfAttendanceMonth").value||defaultMonth,start=monthStart(m),end=monthEnd(m);
   const [tr,ar,cl]=await Promise.all([
    db.from("tutors").select("id,full_name").order("full_name"),
-   db.from("attendance_records").select("id,tutor_id,attendance_date,check_in,check_out,status,subject,student_name_snapshot,class_name_snapshot,duration_minutes_snapshot,group_student_count,students(full_name),schedules(duration_minutes)").gte("attendance_date",start).lte("attendance_date",end).order("attendance_date",{ascending:false}).limit(3000),
+   db.from("attendance_records").select("id,tutor_id,schedule_id,attendance_date,check_in,check_out,status,subject,student_name_snapshot,class_name_snapshot,duration_minutes_snapshot,group_student_count,students(full_name),schedules(duration_minutes)").gte("attendance_date",start).lte("attendance_date",end).order("attendance_date",{ascending:false}).limit(3000),
    db.from("attendance_monthly_closures").select("tutor_id,period_start,closed_at").eq("period_start",start)
   ]);
   if(tr.error||ar.error||cl.error){byId("bfAttendanceSummary").textContent=(tr.error||ar.error||cl.error).message;return;}
@@ -180,7 +180,7 @@ async function renderAdminPayroll(){
     if(error)alert("Gagal membuat invoice gaji: "+error.message);else await load();
    });
    row.querySelector("[data-mark-paid]")?.addEventListener("click",async()=>{if(!confirm("Tandai invoice gaji ini sudah dibayar?"))return;const {error}=await db.from("tutor_payrolls").update({status:"paid",paid_at:new Date().toISOString()}).eq("id",p.id);if(error)alert(error.message);else await load();});
-   row.querySelector("[data-payroll-print]")?.addEventListener("click",()=>printPayroll(p));
+   row.querySelector("[data-payroll-print]")?.addEventListener("click",()=>printPayroll({...p,tutor_name:t.data?.find(tutor=>tutor.id===id)?.full_name||"Tentor"}));
   });
  }
  byId("bfPayrollMonth").onchange=load;byId("bfPayrollReload").onclick=load;await load();
@@ -197,7 +197,7 @@ async function renderTutorVideoTasks(){
  const targets=(data||[]).flatMap(t=>(t.tutor_video_task_targets||[]).map(x=>({task:t,target:x,submission:x.tutor_video_submissions?.[0]||null})));
  byId("bfTutorTasks").innerHTML=targets.map(({task,target,submission})=>{
   const group=target.target_type==="group";
-  return "<article class='bf-feature-card' data-target='"+target.id+"'><strong>"+safe(task.title)+"</strong><div class='portal-muted'>"+(group?"Kelompok: "+safe(target.tutor_groups?.group_name||"Kelompok"):"Tugas individu")+" · Tenggat: "+safe(task.due_at?new Date(task.due_at).toLocaleString("id-ID"):"Tidak ditentukan")+"</div><p>"+safe(task.instructions)+"</p>"+(submission?"<p>Status: <b>"+safe(submission.status)+"</b>"+(submission.score!==null?" · Nilai: "+submission.score:"")+"</p>"+(submission.admin_comment?"<p>Catatan Admin: "+safe(submission.admin_comment)+"</p>":"")+(submission.drive_url?"<a href='"+safe(submission.drive_url)+"' target='_blank' rel='noopener'>Lihat video yang dikumpulkan</a>":""):"<p class='portal-muted'>Belum dikumpulkan.</p>")+(submission?.status==="approved"?"":"<form class='bf-submit-video'><label>Tautan Google Drive<input name='drive_url' type='url' required placeholder='https://drive.google.com/... ' value='"+safe(submission?.drive_url||"")+"'></label><button class='small-btn' type='submit'>"+(submission?"Kirim revisi":"Kumpulkan video")+"</button></form>")+"</article>";
+  return "<article class='bf-feature-card' data-target='"+target.id+"'><strong>"+safe(task.title)+"</strong><div class='portal-muted'>"+(group?"Kelompok: "+safe(target.tutor_groups?.group_name||"Kelompok"):"Tugas individu")+" · Tenggat: "+safe(task.due_at?new Date(task.due_at).toLocaleString("id-ID"):"Tidak ditentukan")+"</div><p>"+safe(task.instructions)+"</p>"+(submission?"<p>Status: <b>"+safe(submission.status)+"</b>"+(submission.score!==null?" · Nilai: "+submission.score:"")+"</p>"+(submission.admin_comment?"<p>Catatan Admin: "+safe(submission.admin_comment)+"</p>":"")+(submission.drive_url?"<a href='"+safe(submission.drive_url)+"' target='_blank' rel='noopener'>Lihat video yang dikumpulkan</a>":""):"<p class='portal-muted'>Belum dikumpulkan.</p>")+(!submission||submission.status==="revision"?"<form class='bf-submit-video'><label>Tautan Google Drive<input name='drive_url' type='url' required placeholder='https://drive.google.com/... ' value='"+safe(submission?.drive_url||"")+"'></label><button class='small-btn' type='submit'>"+(submission?"Kirim revisi":"Kumpulkan video")+"</button></form>")+"</article>";
  }).join("")||"<p class='portal-muted'>Belum ada tugas video untuk Anda.</p>";
  byId("bfTutorTasks").querySelectorAll("[data-target]").forEach(card=>{
   card.querySelector("form")?.addEventListener("submit",async e=>{
@@ -232,7 +232,7 @@ async function renderTutorPayroll(){
  const root=byId("bfTutorPayrollSection");
  const {data,error}=await db.from("tutor_payrolls").select("*").eq("tutor_id",tutorRecord.id).order("period_start",{ascending:false});
  root.innerHTML="<h2>Gaji Saya</h2><p class='portal-muted'>Invoice gaji bulanan dan status pembayarannya.</p>"+(error?"<p>"+safe(error.message)+"</p>":(data||[]).map(p=>"<article class='bf-feature-card'><strong>"+safe(p.period_start)+" s.d. "+safe(p.period_end)+"</strong><div>Jumlah sesi: "+p.session_count+"</div><div>Tarif per sesi: "+money(p.rate_per_session)+"</div><div>Subtotal: "+money(p.base_amount)+"</div><div>Penyesuaian: "+money(p.adjustment_amount)+"</div><h3>Total: "+money(p.net_amount)+"</h3><p>Status: <b>"+(p.status==="paid"?"Sudah dibayar":"Belum dibayar")+"</b></p><button class='small-btn' data-payroll-print='"+p.id+"'>Cetak / PDF</button></article>").join("")||"<p class='portal-muted'>Belum ada invoice gaji.</p>");
- root.querySelectorAll("[data-payroll-print]").forEach(b=>b.onclick=()=>printPayroll(data.find(x=>x.id===b.dataset.payrollPrint)));
+ root.querySelectorAll("[data-payroll-print]").forEach(b=>b.onclick=()=>printPayroll({...data.find(x=>x.id===b.dataset.payrollPrint),tutor_name:tutorRecord.full_name}));
 }
 async function renderTutorBankQuestions(){
  const section=byId("learningResources");if(!section)return;
@@ -375,7 +375,7 @@ async function openStudentPackageForm(cfg,row){
  byId("bfPackageCancel").onclick=()=>{wrap.innerHTML="";editId=null;};
  tutorSel.onchange=async()=>{row=null;await loadStudents();};
  studentSel.onchange=loadClasses;classSel.onchange=updateGroup;
- if(row?.tutor_id)await loadStudents();
+ if(row?.tutor_id)await loadStudents();if(row?.subject)subjectSel.value=row.subject;
  form.onsubmit=async e=>{
   e.preventDefault();const fd=new FormData(form),selectedClass=assigned.classes.find(x=>x.id===fd.get("class_id")),group=!!selectedClass?.has_group_learning;
   const price=fd.get("price"),purchased=fd.get("purchased_at");
