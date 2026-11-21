@@ -190,7 +190,7 @@ async function renderAdminPayroll(){
  byId("bfPayrollMonth").onchange=load;byId("bfPayrollReload").onclick=load;await load();
 }
 function printPayroll(p){
- const body="<h2>Invoice Gaji Tentor</h2><table><tr><th>Tentor</th><td>"+safe(p.tutor_name||"Bimbel Fun")+"</td></tr><tr><th>Periode</th><td>"+safe(p.period_start)+" s.d. "+safe(p.period_end)+"</td></tr><tr><th>Jumlah sesi</th><td>"+p.session_count+"</td></tr><tr><th>Tarif per sesi</th><td>"+money(p.rate_per_session)+"</td></tr><tr><th>Subtotal</th><td>"+money(p.base_amount)+"</td></tr><tr><th>Penyesuaian</th><td>"+money(p.adjustment_amount)+"</td></tr><tr><th>Total gaji</th><td><b>"+money(p.net_amount)+"</b></td></tr><tr><th>Status</th><td>"+safe(p.status)+"</td></tr></table><p class='muted'>Bimbel Fun · Make Learning Fun</p>";
+ const body="<h2>Invoice Gaji Tentor</h2><table><tr><th>Nomor Invoice</th><td>"+safe(p.invoice_number||"-")+"</td></tr><tr><th>Tentor</th><td>"+safe(p.tutor_name||"Bimbel Fun")+"</td></tr><tr><th>Periode</th><td>"+safe(p.period_start)+" s.d. "+safe(p.period_end)+"</td></tr><tr><th>Jumlah sesi</th><td>"+p.session_count+"</td></tr><tr><th>Tarif per sesi</th><td>"+money(p.rate_per_session)+"</td></tr><tr><th>Subtotal</th><td>"+money(p.base_amount)+"</td></tr><tr><th>Penyesuaian</th><td>"+money(p.adjustment_amount)+"</td></tr><tr><th>Total gaji</th><td><b>"+money(p.net_amount)+"</b></td></tr><tr><th>Status</th><td>"+safe(p.status)+"</td></tr></table><p class='muted'>Bimbel Fun · Make Learning Fun</p>";
  printWindow("Invoice Gaji Tentor",body);
 }
 async function renderTutorVideoTasks(){
