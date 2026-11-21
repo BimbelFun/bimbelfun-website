@@ -72,20 +72,6 @@ end;
 $fn$;
 grant execute on function public.bimbelfun_admin_close_attendance_month(uuid,date) to authenticated;
 
-create or replace function public.bimbelfun_admin_reopen_attendance_month(p_tutor_id uuid, p_period_start date)
-returns boolean language plpgsql security definer set search_path=public
-as $fn$
-begin
-  if not public.bimbelfun_is_admin() then raise exception 'Hanya Admin yang dapat membuka kembali rekap presensi.'; end if;
-  if exists(select 1 from public.tutor_payrolls where tutor_id=p_tutor_id and period_start=p_period_start and status='paid') then
-    raise exception 'Invoice gaji sudah dibayar. Arsip presensi tidak dapat dibuka kembali.';
-  end if;
-  delete from public.attendance_monthly_closures where tutor_id=p_tutor_id and period_start=p_period_start;
-  return found;
-end;
-$fn$;
-grant execute on function public.bimbelfun_admin_reopen_attendance_month(uuid,date) to authenticated;
-
 -- Admin may correct/delete attendance rows; closed periods remain protected by the trigger above.
 drop policy if exists "attendance admin manage all" on public.attendance_records;
 create policy "attendance admin manage all" on public.attendance_records
@@ -386,6 +372,20 @@ begin
 end;
 $fn$;
 grant execute on function public.bimbelfun_admin_generate_tutor_payroll(uuid,date,numeric,numeric,text) to authenticated;
+
+create or replace function public.bimbelfun_admin_reopen_attendance_month(p_tutor_id uuid, p_period_start date)
+returns boolean language plpgsql security definer set search_path=public
+as $fn$
+begin
+  if not public.bimbelfun_is_admin() then raise exception 'Hanya Admin yang dapat membuka kembali rekap presensi.'; end if;
+  if exists(select 1 from public.tutor_payrolls where tutor_id=p_tutor_id and period_start=p_period_start and status='paid') then
+    raise exception 'Invoice gaji sudah dibayar. Arsip presensi tidak dapat dibuka kembali.';
+  end if;
+  delete from public.attendance_monthly_closures where tutor_id=p_tutor_id and period_start=p_period_start;
+  return found;
+end;
+$fn$;
+grant execute on function public.bimbelfun_admin_reopen_attendance_month(uuid,date) to authenticated;
 
 -- 5) Bank Soal owned by a tutor with Admin-approved cross-tutor access.
 create table if not exists public.tutor_bank_questions (
