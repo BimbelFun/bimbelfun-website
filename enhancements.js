@@ -342,7 +342,7 @@ async function loadAdminClasses(cfg){
   const active=(c.schedules||[]).filter(s=>s.is_active!==false);
   const memberNames=(c.class_students||[]).filter(z=>!["inactive","nonaktif","removed"].includes(String(z.status||"active").toLowerCase())).map(z=>z.students?.full_name).filter(Boolean).sort((a,b)=>a.localeCompare(b,"id"));
   const student=memberNames.length?memberNames.join(", "):(c.students?.full_name||c.class_name||"-");
-  (active.length?active:[null]).forEach(s=>rows.push({c,s,tutor,student}));
+  active.forEach(s=>rows.push({c,s,tutor,student}));
  });
  rows.sort((a,b)=>a.tutor.localeCompare(b.tutor,"id")||a.student.localeCompare(b.student,"id")||Number(a.s?.day_of_week||0)-Number(b.s?.day_of_week||0));
  body.innerHTML=rows.map(({c,s,tutor,student})=>"<tr><td>"+safe(tutor)+"</td><td>"+safe(student)+"</td><td>"+(s?safe(dayLabel(s.day_of_week)):"-")+"</td><td>"+safe(s?.subject||c.subject||"-")+"</td><td>"+safe(c.class_grade||"-")+"</td><td>"+(c.has_group_learning?"Ada":"Tidak ada")+"</td><td>"+(s?s.duration_minutes+" menit":"-")+"</td><td>"+safe(c.students?.address||"-")+"</td><td><button class='small-btn' data-class-edit='"+c.id+"'>Ubah</button> "+(s?"<button class='small-btn danger' data-schedule-delete='"+s.id+"'>Hapus jadwal</button>":"")+"</td></tr>").join("")||"<tr><td colspan='9'>Belum ada jadwal.</td></tr>";
