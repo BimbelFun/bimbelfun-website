@@ -197,7 +197,13 @@ async function renderTutorVideoTasks(){
  const targets=(data||[]).flatMap(t=>(t.tutor_video_task_targets||[]).map(x=>({task:t,target:x,submission:x.tutor_video_submissions?.[0]||null})));
  byId("bfTutorTasks").innerHTML=targets.map(({task,target,submission})=>{
   const group=target.target_type==="group";
-  return "<article class='bf-feature-card' data-target='"+target.id+"'><strong>"+safe(task.title)+"</strong><div class='portal-muted'>"+(group?"Kelompok: "+safe(target.tutor_groups?.group_name||"Kelompok"):"Tugas individu")+" · Tenggat: "+safe(task.due_at?new Date(task.due_at).toLocaleString("id-ID"):"Tidak ditentukan")+"</div><p>"+safe(task.instructions)+"</p>"+(submission?"<p>Status: <b>"+safe(submission.status)+"</b>"+(submission.score!==null?" · Nilai: "+submission.score:"")+"</p>"+(submission.admin_comment?"<p>Catatan Admin: "+safe(submission.admin_comment)+"</p>":"")+(submission.drive_url?"<a href='"+safe(submission.drive_url)+"' target='_blank' rel='noopener'>Lihat video yang dikumpulkan</a>":""):"<p class='portal-muted'>Belum dikumpulkan.</p>")+(!submission||submission.status==="revision"?"<form class='bf-submit-video'><label>Tautan Google Drive<input name='drive_url' type='url' required placeholder='https://drive.google.com/... ' value='"+safe(submission?.drive_url||"")+"'></label><button class='small-btn' type='submit'>"+(submission?"Kirim revisi":"Kumpulkan video")+"</button></form>")+"</article>";
+  const statusHtml=submission
+   ? "<p>Status: <b>"+safe(submission.status)+"</b>"+(submission.score!==null?" · Nilai: "+submission.score:"")+"</p>"+(submission.admin_comment?"<p>Catatan Admin: "+safe(submission.admin_comment)+"</p>":"")+(submission.drive_url?"<a href='"+safe(submission.drive_url)+"' target='_blank' rel='noopener'>Lihat video yang dikumpulkan</a>":"")
+   : "<p class='portal-muted'>Belum dikumpulkan.</p>";
+  const formHtml=(!submission||submission.status==="revision")
+   ? "<form class='bf-submit-video'><label>Tautan Google Drive<input name='drive_url' type='url' required placeholder='https://drive.google.com/...' value='"+safe(submission?.drive_url||"")+"'></label><button class='small-btn' type='submit'>"+(submission?"Kirim revisi":"Kumpulkan video")+"</button></form>"
+   : "";
+  return "<article class='bf-feature-card' data-target='"+target.id+"'><strong>"+safe(task.title)+"</strong><div class='portal-muted'>"+(group?"Kelompok: "+safe(target.tutor_groups?.group_name||"Kelompok"):"Tugas individu")+" · Tenggat: "+safe(task.due_at?new Date(task.due_at).toLocaleString("id-ID"):"Tidak ditentukan")+"</div><p>"+safe(task.instructions)+"</p>"+statusHtml+formHtml+"</article>";
  }).join("")||"<p class='portal-muted'>Belum ada tugas video untuk Anda.</p>";
  byId("bfTutorTasks").querySelectorAll("[data-target]").forEach(card=>{
   card.querySelector("form")?.addEventListener("submit",async e=>{
