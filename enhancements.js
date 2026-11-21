@@ -247,14 +247,15 @@ async function renderTutorBankQuestions(){
  const section=byId("learningResources");if(!section)return;
  let host=byId("bfTutorBankWorkspace");
  if(!host){host=document.createElement("div");host.id="bfTutorBankWorkspace";host.className="bf-feature-card";section.insertBefore(host,section.firstChild);}
- host.innerHTML="<h2>Bank Soal Tentor</h2><p class='portal-muted'>Soal yang Anda buat langsung tersimpan. Tentor lain harus meminta izin Admin untuk melihat isi soal.</p><form id='bfBankQuestionForm' class='admin-form'><h3>Tambah Soal</h3><label>Judul soal<input name='title' required></label><div class='form-grid'><label>Jenjang<input name='education_level' placeholder='SD / SMP / SMA'></label><label>Kelas<input name='grade' placeholder='Kelas 5'></label></div><div class='form-grid'><label>Mata pelajaran<input name='subject' required></label><label>Topik<input name='topic'></label></div><label>Jenis soal<select name='question_type'><option value='essay'>Uraian</option><option value='multiple_choice'>Pilihan ganda</option></select></label><label>Pertanyaan<textarea name='question_text' rows='3' required></textarea></label><label>Pilihan jawaban (satu per baris, khusus pilihan ganda)<textarea name='options' rows='4' placeholder='A. ...&#10;B. ...&#10;C. ...'></textarea></label><label>Jawaban benar<textarea name='correct_answer' rows='2'></textarea></label><label>Pembahasan<textarea name='explanation' rows='2'></textarea></label><button class='portal-btn' type='submit'>Simpan Soal</button><p id='bfBankQuestionMessage' class='portal-muted'></p></form><h3>Daftar Bank Soal</h3><div id='bfBankQuestionList'>Memuat...</div><div id='bfBankQuestionDetail'></div>";
+ host.innerHTML="<h2>Bank Soal Tentor</h2><p class='portal-muted'>Soal yang Anda buat langsung tersimpan. Tentor lain harus meminta izin Admin untuk melihat isi soal.</p><form id='bfBankQuestionForm' class='admin-form'><h3>Tambah Soal</h3><label>Judul soal<input name='title' required></label><div class='form-grid'><label>Jenjang<input name='education_level' placeholder='SD / SMP / SMA'></label><label>Kelas<input name='grade' placeholder='Kelas 5'></label></div><div class='form-grid'><label>Mata pelajaran<input name='subject' required></label><label>Topik<input name='topic'></label></div><label>Jenis soal<select name='question_type'><option value='essay'>Uraian</option><option value='multiple_choice'>Pilihan ganda</option></select></label><label>Pertanyaan<textarea name='question_text' rows='3' required></textarea></label><label>Pilihan jawaban (satu per baris, khusus pilihan ganda)<textarea name='options' rows='4' placeholder='A. ...&#10;B. ...&#10;C. ...'></textarea></label><label>Jawaban benar<textarea name='correct_answer' rows='2'></textarea></label><label>Pembahasan<textarea name='explanation' rows='2'></textarea></label><button class='portal-btn' type='submit' id='bfBankQuestionSubmit'>Simpan Soal</button><p id='bfBankQuestionMessage' class='portal-muted'></p></form><h3>Daftar Bank Soal</h3><div id='bfBankQuestionList'>Memuat...</div><div id='bfBankQuestionDetail'></div>";
+ let editingQuestionId=null;
  byId("bfBankQuestionForm").onsubmit=async e=>{
   e.preventDefault();const fd=new FormData(e.currentTarget),type=fd.get("question_type");
   const opts=type==="multiple_choice"?String(fd.get("options")||"").split("\n").map(x=>x.trim()).filter(Boolean):[];
   const payload={owner_tutor_id:tutorRecord.id,title:fd.get("title"),education_level:fd.get("education_level")||null,grade:fd.get("grade")||null,subject:fd.get("subject"),topic:fd.get("topic")||null,question_type:type,question_text:fd.get("question_text"),options:opts,correct_answer:fd.get("correct_answer")||null,explanation:fd.get("explanation")||null};
-  const {error}=await db.from("tutor_bank_questions").insert(payload);
-  byId("bfBankQuestionMessage").textContent=error?"Gagal menyimpan soal: "+error.message:"Soal berhasil ditambahkan ke Bank Soal Anda.";
-  if(!error){e.currentTarget.reset();await load();}
+  const result=editingQuestionId?await db.from("tutor_bank_questions").update(payload).eq("id",editingQuestionId):await db.from("tutor_bank_questions").insert(payload);
+  byId("bfBankQuestionMessage").textContent=result.error?"Gagal menyimpan soal: "+result.error.message:(editingQuestionId?"Perubahan soal berhasil disimpan.":"Soal berhasil ditambahkan ke Bank Soal Anda.");
+  if(!result.error){editingQuestionId=null;e.currentTarget.reset();byId("bfBankQuestionSubmit").textContent="Simpan Soal";await load();}
  };
  async function load(){
   const [catalog,grants,requests,tutors]=await Promise.all([
@@ -270,7 +271,7 @@ async function renderTutorBankQuestions(){
   byId("bfBankQuestionList").innerHTML=(catalog.data||[]).map(q=>{
    const own=q.owner_tutor_id===tutorRecord.id,granted=grantSet.has(q.id),req=reqMap.get(q.id);
    const action=own||granted?"<button class='small-btn' data-view-question='"+q.id+"'>Lihat soal</button>":req?.status==="pending"?"<span class='portal-muted'>Menunggu persetujuan Admin</span>":"<button class='small-btn' data-request-question='"+q.id+"'>"+(req?.status==="rejected"?"Ajukan akses lagi":"Minta akses")+"</button>";
-   return "<article class='bf-feature-card'><strong>"+safe(q.title)+"</strong><div>"+safe(q.subject)+" · "+safe(q.grade||q.education_level||"-")+" · Pemilik: "+safe(tutorMap.get(q.owner_tutor_id)||"Tentor")+"</div><div class='portal-actions'>"+action+(own?" <button class='small-btn danger' data-delete-question='"+q.id+"'>Hapus</button>":"")+"</div></article>";
+   return "<article class='bf-feature-card'><strong>"+safe(q.title)+"</strong><div>"+safe(q.subject)+" · "+safe(q.grade||q.education_level||"-")+" · Pemilik: "+safe(tutorMap.get(q.owner_tutor_id)||"Tentor")+"</div><div class='portal-actions'>"+action+(own?" <button class='small-btn' data-edit-question='"+q.id+"'>Ubah</button> <button class='small-btn danger' data-delete-question='"+q.id+"'>Hapus</button>":"")+"</div></article>";
   }).join("")||"<p class='portal-muted'>Belum ada soal.</p>";
   byId("bfBankQuestionList").querySelectorAll("[data-view-question]").forEach(b=>b.onclick=async()=>{
    const {data,error}=await db.from("tutor_bank_questions").select("*").eq("id",b.dataset.viewQuestion).single();
@@ -281,6 +282,15 @@ async function renderTutorBankQuestions(){
   byId("bfBankQuestionList").querySelectorAll("[data-request-question]").forEach(b=>b.onclick=async()=>{
    const {error}=await db.from("tutor_bank_access_requests").insert({question_id:b.dataset.requestQuestion,requester_tutor_id:tutorRecord.id});
    if(error)alert("Gagal mengajukan akses: "+error.message);else await load();
+  });
+  byId("bfBankQuestionList").querySelectorAll("[data-edit-question]").forEach(b=>b.onclick=async()=>{
+   const {data,error}=await db.from("tutor_bank_questions").select("*").eq("id",b.dataset.editQuestion).single();
+   if(error){alert(error.message);return;}
+   const form=byId("bfBankQuestionForm");
+   ["title","education_level","grade","subject","topic","question_type","question_text","correct_answer","explanation"].forEach(k=>form.elements[k].value=data[k]??"");
+   form.elements.options.value=(data.options||[]).join("\n");
+   editingQuestionId=data.id;byId("bfBankQuestionSubmit").textContent="Simpan Perubahan";
+   form.scrollIntoView({behavior:"smooth",block:"start"});
   });
   byId("bfBankQuestionList").querySelectorAll("[data-delete-question]").forEach(b=>b.onclick=async()=>{
    if(!confirm("Hapus soal yang Anda buat?"))return;
