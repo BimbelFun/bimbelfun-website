@@ -332,14 +332,16 @@ function setupTutorWorkspace(){
 }
 loadTutor=async function(uid){await baseLoadTutor(uid);setupTutorWorkspace();};
 async function loadAdminClasses(cfg){
- const {data,error}=await db.from("classes").select("id,class_name,student_id,subject,class_grade,class_day,has_group_learning,students(full_name,address),schedules(id,day_of_week,subject,duration_minutes,is_active),class_tutors(tutor_id,is_active,tutors(full_name))").limit(1000);
+ const {data,error}=await db.from("classes").select("id,class_name,student_id,subject,class_grade,class_day,has_group_learning,students(full_name,address),class_students(student_id,status,students(full_name)),schedules(id,day_of_week,subject,duration_minutes,is_active),class_tutors(tutor_id,is_active,tutors(full_name))").limit(1000);
  const head=byId("recordHead"),body=byId("recordRows");if(error){body.innerHTML="<tr><td>"+safe(error.message)+"</td></tr>";return;}
  head.innerHTML="<tr><th>Tentor</th><th>Murid</th><th>Hari</th><th>Mapel</th><th>Kelas</th><th>Kelompok belajar</th><th>Durasi</th><th>Alamat murid</th><th>Aksi</th></tr>";
  const rows=[];
  (data||[]).forEach(c=>{
   const tutor=(c.class_tutors||[]).filter(x=>x.is_active!==false).map(x=>x.tutors?.full_name).filter(Boolean).sort((a,b)=>a.localeCompare(b,"id")).join(", ")||"-";
   const active=(c.schedules||[]).filter(s=>s.is_active!==false);
-  (active.length?active:[null]).forEach(s=>rows.push({c,s,tutor,student:c.students?.full_name||c.class_name||"-"}));
+  const memberNames=(c.class_students||[]).filter(z=>!["inactive","nonaktif","removed"].includes(String(z.status||"active").toLowerCase())).map(z=>z.students?.full_name).filter(Boolean).sort((a,b)=>a.localeCompare(b,"id"));
+  const student=memberNames.length?memberNames.join(", "):(c.students?.full_name||c.class_name||"-");
+  (active.length?active:[null]).forEach(s=>rows.push({c,s,tutor,student}));
  });
  rows.sort((a,b)=>a.tutor.localeCompare(b.tutor,"id")||a.student.localeCompare(b.student,"id")||Number(a.s?.day_of_week||0)-Number(b.s?.day_of_week||0));
  body.innerHTML=rows.map(({c,s,tutor,student})=>"<tr><td>"+safe(tutor)+"</td><td>"+safe(student)+"</td><td>"+(s?safe(dayLabel(s.day_of_week)):"-")+"</td><td>"+safe(s?.subject||c.subject||"-")+"</td><td>"+safe(c.class_grade||"-")+"</td><td>"+(c.has_group_learning?"Ada":"Tidak ada")+"</td><td>"+(s?s.duration_minutes+" menit":"-")+"</td><td>"+safe(c.students?.address||"-")+"</td><td><button class='small-btn' data-class-edit='"+c.id+"'>Ubah</button> "+(s?"<button class='small-btn danger' data-schedule-delete='"+s.id+"'>Hapus jadwal</button>":"")+"</td></tr>").join("")||"<tr><td colspan='9'>Belum ada jadwal.</td></tr>";
