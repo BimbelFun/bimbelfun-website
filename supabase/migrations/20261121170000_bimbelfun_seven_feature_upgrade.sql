@@ -131,6 +131,40 @@ create table if not exists public.tutor_video_submissions (
   score integer check(score between 0 and 100),
   updated_at timestamptz not null default now()
 );
+create or replace function public.bimbelfun_admin_create_video_task(
+ p_title text,p_instructions text,p_due_at timestamptz,p_assignment_type text,p_tutor_ids uuid[],p_group_name text default null
+)
+returns uuid language plpgsql security definer set search_path=public
+as $
+declare v_task_id uuid; v_group_id uuid; v_tutor_id uuid; v_count integer;
+begin
+ if not public.bimbelfun_is_admin() then raise exception 'Hanya Admin yang dapat membuat tugas video.'; end if;
+ if nullif(trim(p_title),'') is null or nullif(trim(p_instructions),'') is null then raise exception 'Judul dan instruksi tugas wajib diisi.'; end if;
+ if p_assignment_type not in ('individual','group') then raise exception 'Jenis tugas tidak valid.'; end if;
+ select count(distinct x) into v_count from unnest(coalesce(p_tutor_ids,'{}'::uuid[])) x;
+ if v_count=0 or v_count<>(select count(*) from unnest(coalesce(p_tutor_ids,'{}'::uuid[]))) then raise exception 'Pilih Tentor yang valid dan tidak duplikat.'; end if;
+ if exists(select 1 from unnest(p_tutor_ids) x where not exists(select 1 from public.tutors t where t.id=x)) then raise exception 'Ada Tentor yang tidak ditemukan.'; end if;
+ if p_assignment_type='group' and (v_count<>7 or nullif(trim(p_group_name),'') is null) then
+  raise exception 'Tugas kelompok harus memiliki nama kelompok dan tepat 7 Tentor.';
+ end if;
+ insert into public.tutor_video_tasks(title,instructions,due_at,assignment_type,created_by)
+ values(trim(p_title),trim(p_instructions),p_due_at,p_assignment_type,auth.uid()) returning id into v_task_id;
+ if p_assignment_type='individual' then
+  foreach v_tutor_id in array p_tutor_ids loop
+   insert into public.tutor_video_task_targets(task_id,target_type,tutor_id) values(v_task_id,'individual',v_tutor_id);
+  end loop;
+ else
+  insert into public.tutor_groups(group_name,created_by) values(trim(p_group_name),auth.uid()) returning id into v_group_id;
+  foreach v_tutor_id in array p_tutor_ids loop
+   insert into public.tutor_group_members(group_id,tutor_id) values(v_group_id,v_tutor_id);
+  end loop;
+  insert into public.tutor_video_task_targets(task_id,target_type,group_id) values(v_task_id,'group',v_group_id);
+ end if;
+ return v_task_id;
+end;
+$;
+grant execute on function public.bimbelfun_admin_create_video_task(text,text,timestamptz,text,uuid[],text) to authenticated;
+
 create index if not exists tutor_video_targets_task_idx on public.tutor_video_task_targets(task_id);
 create index if not exists tutor_video_targets_tutor_idx on public.tutor_video_task_targets(tutor_id);
 create index if not exists tutor_group_members_tutor_idx on public.tutor_group_members(tutor_id);
