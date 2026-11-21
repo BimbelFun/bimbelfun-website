@@ -256,6 +256,20 @@ using(exists(select 1 from public.tutors t where t.id=tutor_id and t.profile_use
  and public.bimbelfun_tutor_has_student(student_id))
 with check(exists(select 1 from public.tutors t where t.id=tutor_id and t.profile_user_id=auth.uid())
  and public.bimbelfun_tutor_has_student(student_id));
+create or replace function public.bimbelfun_guard_progress_report_sharing()
+returns trigger language plpgsql security definer set search_path=public
+as $
+begin
+ if not public.bimbelfun_is_admin() and (
+   new.shared_to_parent is distinct from old.shared_to_parent or new.shared_at is distinct from old.shared_at
+ ) then raise exception 'Hanya Admin yang dapat menandai laporan sudah dibagikan kepada orang tua.'; end if;
+ new.updated_at=now();
+ return new;
+end;
+$;
+drop trigger if exists student_progress_report_sharing_guard on public.student_progress_reports;
+create trigger student_progress_report_sharing_guard before update on public.student_progress_reports
+for each row execute function public.bimbelfun_guard_progress_report_sharing();
 grant select,insert,update,delete on public.student_progress_reports to authenticated;
 
 -- 4) Tutor payrolls. Rate is snapshotted per monthly invoice and can be adjusted by Admin.
@@ -342,6 +356,48 @@ create table if not exists public.tutor_bank_questions (
  created_at timestamptz not null default now(),
  updated_at timestamptz not null default now()
 );
+create table if not exists public.tutor_bank_question_catalog (
+ id uuid primary key references public.tutor_bank_questions(id) on delete cascade,
+ owner_tutor_id uuid not null references public.tutors(id) on delete cascade,
+ title text not null,
+ education_level text,
+ grade text,
+ subject text not null,
+ topic text,
+ created_at timestamptz not null default now()
+);
+alter table public.tutor_bank_question_catalog enable row level security;
+drop policy if exists "authenticated read bank question catalog" on public.tutor_bank_question_catalog;
+create policy "authenticated read bank question catalog" on public.tutor_bank_question_catalog
+ for select to authenticated using(true);
+drop policy if exists "owner and admin manage bank question catalog" on public.tutor_bank_question_catalog;
+create policy "owner and admin manage bank question catalog" on public.tutor_bank_question_catalog
+ for all to authenticated using(public.bimbelfun_is_admin() or exists(
+  select 1 from public.tutors t where t.id=owner_tutor_id and t.profile_user_id=auth.uid()
+ )) with check(public.bimbelfun_is_admin() or exists(
+  select 1 from public.tutors t where t.id=owner_tutor_id and t.profile_user_id=auth.uid()
+ ));
+grant select,insert,update,delete on public.tutor_bank_question_catalog to authenticated;
+
+create or replace function public.bimbelfun_sync_bank_question_catalog()
+returns trigger language plpgsql security definer set search_path=public
+as $
+begin
+ if TG_OP='DELETE' then delete from public.tutor_bank_question_catalog where id=old.id; return old; end if;
+ insert into public.tutor_bank_question_catalog(id,owner_tutor_id,title,education_level,grade,subject,topic,created_at)
+ values(new.id,new.owner_tutor_id,new.title,new.education_level,new.grade,new.subject,new.topic,new.created_at)
+ on conflict(id) do update set owner_tutor_id=excluded.owner_tutor_id,title=excluded.title,
+  education_level=excluded.education_level,grade=excluded.grade,subject=excluded.subject,topic=excluded.topic;
+ return new;
+end;
+$;
+drop trigger if exists tutor_bank_question_catalog_sync on public.tutor_bank_questions;
+create trigger tutor_bank_question_catalog_sync after insert or update or delete on public.tutor_bank_questions
+for each row execute function public.bimbelfun_sync_bank_question_catalog();
+insert into public.tutor_bank_question_catalog(id,owner_tutor_id,title,education_level,grade,subject,topic,created_at)
+select id,owner_tutor_id,title,education_level,grade,subject,topic,created_at from public.tutor_bank_questions
+on conflict(id) do update set title=excluded.title,subject=excluded.subject,topic=excluded.topic;
+
 create table if not exists public.tutor_bank_access_requests (
  id uuid primary key default gen_random_uuid(),
  question_id uuid not null references public.tutor_bank_questions(id) on delete cascade,
@@ -353,6 +409,8 @@ create table if not exists public.tutor_bank_access_requests (
  admin_note text,
  unique(question_id,requester_tutor_id)
 );
+-- Allow a Tutor to submit a new request after an earlier request was rejected.
+alter table public.tutor_bank_access_requests drop constraint if exists tutor_bank_access_requests_question_id_requester_tutor_id_key;
 create table if not exists public.tutor_bank_access_grants (
  id uuid primary key default gen_random_uuid(),
  question_id uuid not null references public.tutor_bank_questions(id) on delete cascade,
