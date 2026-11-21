@@ -141,9 +141,9 @@ begin
  if not public.bimbelfun_is_admin() then raise exception 'Hanya Admin yang dapat membuat tugas video.'; end if;
  if nullif(trim(p_title),'') is null or nullif(trim(p_instructions),'') is null then raise exception 'Judul dan instruksi tugas wajib diisi.'; end if;
  if p_assignment_type not in ('individual','group') then raise exception 'Jenis tugas tidak valid.'; end if;
- select count(distinct x) into v_count from unnest(coalesce(p_tutor_ids,'{}'::uuid[])) x;
- if v_count=0 or v_count<>(select count(*) from unnest(coalesce(p_tutor_ids,'{}'::uuid[]))) then raise exception 'Pilih Tentor yang valid dan tidak duplikat.'; end if;
- if exists(select 1 from unnest(p_tutor_ids) x where not exists(select 1 from public.tutors t where t.id=x)) then raise exception 'Ada Tentor yang tidak ditemukan.'; end if;
+ select count(distinct tutor_id) into v_count from unnest(coalesce(p_tutor_ids,'{}'::uuid[])) as u(tutor_id);
+ if v_count=0 or v_count<>(select count(*) from unnest(coalesce(p_tutor_ids,'{}'::uuid[])) as u(tutor_id)) then raise exception 'Pilih Tentor yang valid dan tidak duplikat.'; end if;
+ if exists(select 1 from unnest(p_tutor_ids) as u(tutor_id) where not exists(select 1 from public.tutors t where t.id=u.tutor_id)) then raise exception 'Ada Tentor yang tidak ditemukan.'; end if;
  if p_assignment_type='group' and (v_count<>7 or nullif(trim(p_group_name),'') is null) then
   raise exception 'Tugas kelompok harus memiliki nama kelompok dan tepat 7 Tentor.';
  end if;
@@ -181,7 +181,7 @@ using(public.bimbelfun_is_admin()) with check(public.bimbelfun_is_admin());
 drop policy if exists "tutor read own groups" on public.tutor_groups;
 create policy "tutor read own groups" on public.tutor_groups for select to authenticated using(exists(
  select 1 from public.tutor_group_members gm join public.tutors t on t.id=gm.tutor_id
- where gm.group_id=id and t.profile_user_id=auth.uid()
+ where gm.group_id=tutor_groups.id and t.profile_user_id=auth.uid()
 ));
 drop policy if exists "admin manage tutor group members" on public.tutor_group_members;
 create policy "admin manage tutor group members" on public.tutor_group_members for all to authenticated
@@ -196,7 +196,7 @@ using(public.bimbelfun_is_admin()) with check(public.bimbelfun_is_admin());
 drop policy if exists "tutor read assigned video tasks" on public.tutor_video_tasks;
 create policy "tutor read assigned video tasks" on public.tutor_video_tasks for select to authenticated using(exists(
  select 1 from public.tutor_video_task_targets x
- where x.task_id=id and (
+ where x.task_id=tutor_video_tasks.id and (
    exists(select 1 from public.tutors t where t.id=x.tutor_id and t.profile_user_id=auth.uid())
    or exists(select 1 from public.tutor_group_members gm join public.tutors t on t.id=gm.tutor_id
      where gm.group_id=x.group_id and t.profile_user_id=auth.uid())
@@ -251,7 +251,7 @@ returns trigger language plpgsql security definer set search_path=public
 as $$
 begin
  if not public.bimbelfun_is_admin() and (
-   new.status is distinct from old.status or new.admin_comment is distinct from old.admin_comment
+   (new.status is distinct from old.status and not (old.status='revision' and new.status='submitted')) or new.admin_comment is distinct from old.admin_comment
    or new.score is distinct from old.score
  ) then raise exception 'Hanya Admin yang dapat mengubah status, komentar, dan nilai tugas video.'; end if;
  new.updated_at=now();
@@ -295,14 +295,15 @@ returns trigger language plpgsql security definer set search_path=public
 as $
 begin
  if not public.bimbelfun_is_admin() and (
-   new.shared_to_parent is distinct from old.shared_to_parent or new.shared_at is distinct from old.shared_at
+   (TG_OP='INSERT' and (new.shared_to_parent or new.shared_at is not null))
+   or (TG_OP='UPDATE' and (new.shared_to_parent is distinct from old.shared_to_parent or new.shared_at is distinct from old.shared_at))
  ) then raise exception 'Hanya Admin yang dapat menandai laporan sudah dibagikan kepada orang tua.'; end if;
  new.updated_at=now();
  return new;
 end;
 $;
 drop trigger if exists student_progress_report_sharing_guard on public.student_progress_reports;
-create trigger student_progress_report_sharing_guard before update on public.student_progress_reports
+create trigger student_progress_report_sharing_guard before insert or update on public.student_progress_reports
 for each row execute function public.bimbelfun_guard_progress_report_sharing();
 grant select,insert,update,delete on public.student_progress_reports to authenticated;
 
