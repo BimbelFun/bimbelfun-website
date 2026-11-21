@@ -235,7 +235,8 @@ async function fieldControl(f,value,table){
  if(type==="package-status"||type==="invoice-status")return '<label>'+esc(label)+'<select name="'+name+'">'+(type==="package-status"?["active","pending","off"]:["unpaid","partial","paid"]).map(v=>'<option value="'+v+'" '+(value===v?"selected":"")+' >'+(v==="active"?"Active":v==="pending"?"Pending":v==="off"?"Off":v)+'</option>').join("")+'</select></label>';
  if(type==="duration")return '<label>'+esc(label)+'<select name="'+name+'" required><option value="60" '+(String(value??60)==="60"?"selected":"")+' >60 menit</option><option value="90" '+(String(value)==="90"?"selected":"")+' >90 menit</option><option value="120" '+(String(value)==="120"?"selected":"")+' >120 menit</option></select></label>';
  if(type?.startsWith("select:")){const [,optionTable,key,textCol]=type.split(":");const {data}=await db.from(optionTable).select(key+","+textCol).order(textCol);return '<label>'+esc(label)+'<select name="'+name+'" '+(table==="classes"&&name==="student_id"?"":"required")+'><option value="">Pilih '+esc(label)+'</option>'+(data||[]).map(o=>'<option value="'+esc(o[key])+'" '+(o[key]===value?"selected":"")+'>'+esc(o[textCol])+'</option>').join("")+'</select></label>'}
- return '<label>'+esc(label)+'<input name="'+name+'" type="'+inputType+'" '+(f[2]==="required"?"required":"")+' value="'+esc(value??"")+'"></label>';
+ const required=f[2]==="required"||name==="price";const today=new Date();const localToday=[today.getFullYear(),String(today.getMonth()+1).padStart(2,"0"),String(today.getDate()).padStart(2,"0")].join("-");const fieldValue=name==="purchased_at"?(value||localToday):(value??"");
+ return '<label>'+esc(label)+'<input name="'+name+'" type="'+inputType+'" '+(required?"required":"")+' value="'+esc(fieldValue)+'"></label>';
 }
 async function openClassScheduleForm(cfg,row=null){
  editId=row?.id||null;
