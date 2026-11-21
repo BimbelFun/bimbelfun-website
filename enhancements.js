@@ -71,6 +71,7 @@ async function renderAdminVideoTasks(){
  root.innerHTML="<h2>Tugas Konten Video</h2><p class='portal-muted'>Buat tugas individu atau kelompok. Tugas kelompok harus berisi tepat 7 Tentor dan cukup mengumpulkan satu video.</p><div id='bfTaskFormWrap'></div><div id='bfTaskList'></div><h3>Pengumpulan dan Penilaian</h3><div id='bfSubmissionList'>Memuat...</div>";
  const {data:tutors,error}=await db.from("tutors").select("id,full_name").order("full_name");
  if(error){byId("bfTaskFormWrap").textContent=error.message;return;}
+ const tutorNameMap=new Map((tutors||[]).map(t=>[t.id,t.full_name]));
  const options=(tutors||[]).map(t=>"<label class='bf-tutor-choice'><input type='checkbox' name='tutor_ids' value='"+t.id+"'> "+safe(t.full_name)+"</label>").join("");
  byId("bfTaskFormWrap").innerHTML="<form id='bfTaskForm' class='admin-form'><h3>Buat Tugas Baru</h3><label>Judul tugas<input name='title' required></label><label>Instruksi<textarea name='instructions' rows='3' required></textarea></label><label>Batas waktu<input name='due_at' type='datetime-local'></label><label>Jenis tugas<select name='assignment_type' id='bfTaskType'><option value='individual'>Individu</option><option value='group'>Kelompok (7 Tentor)</option></select></label><label id='bfGroupNameWrap' class='portal-hidden'>Nama kelompok<input name='group_name' placeholder='Contoh: Kelompok A'></label><fieldset class='bf-tutor-choices'><legend>Pilih Tentor</legend><div id='bfTaskTutors'>"+options+"</div><small class='portal-muted'>Pilih satu atau beberapa Tentor. Untuk kelompok, pilih tepat 7 orang.</small></fieldset><div class='portal-actions'><button class='portal-btn' type='submit'>Buat Tugas</button></div><p id='bfTaskMessage' class='portal-muted'></p></form>";
  byId("bfTaskType").onchange=()=>byId("bfGroupNameWrap").classList.toggle("portal-hidden",byId("bfTaskType").value!=="group");
@@ -86,7 +87,7 @@ async function renderAdminVideoTasks(){
  const {data:tasks,error:taskError}=await db.from("tutor_video_tasks").select("id,title,instructions,due_at,assignment_type,created_at,tutor_video_task_targets(id,target_type,tutor_id,group_id,tutor_groups(group_name))").order("created_at",{ascending:false}).limit(100);
  byId("bfTaskList").innerHTML=taskError?"Gagal memuat tugas: "+safe(taskError.message):(tasks||[]).map(t=>{
   const targets=t.tutor_video_task_targets||[];
-  const who=targets.map(x=>x.target_type==="group"?(x.tutor_groups?.group_name||"Kelompok"):"Tentor individu").join(", ");
+  const who=targets.map(x=>x.target_type==="group"?(x.tutor_groups?.group_name||"Kelompok"):(tutorNameMap.get(x.tutor_id)||"Tentor")).join(", ");
   return "<article class='bf-feature-card'><strong>"+safe(t.title)+"</strong><div>"+safe(t.assignment_type==="group"?"Kelompok":"Individu")+" · "+safe(who)+"</div><div class='portal-muted'>Batas waktu: "+safe(t.due_at?new Date(t.due_at).toLocaleString("id-ID"):"Tidak ditentukan")+"</div><p>"+safe(t.instructions)+"</p></article>";
  }).join("")||"<p class='portal-muted'>Belum ada tugas video.</p>";
  const {data:subs,error:subError}=await db.from("tutor_video_submissions").select("id,drive_url,submitted_at,status,score,admin_comment,tutor_video_task_targets(task_id,tutor_id,group_id,tutor_groups(group_name),tutors(full_name),tutor_video_tasks(title))").order("submitted_at",{ascending:false}).limit(200);
