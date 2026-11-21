@@ -484,7 +484,7 @@ with check(exists(select 1 from public.tutors t where t.id=owner_tutor_id and t.
 drop policy if exists "approved tutor can read shared questions" on public.tutor_bank_questions;
 create policy "approved tutor can read shared questions" on public.tutor_bank_questions for select to authenticated
 using(exists(select 1 from public.tutor_bank_access_grants g join public.tutors t on t.id=g.tutor_id
- where g.question_id=id and t.profile_user_id=auth.uid()));
+ where g.question_id=tutor_bank_questions.id and t.profile_user_id=auth.uid()));
 
 drop policy if exists "admin manage tutor bank requests" on public.tutor_bank_access_requests;
 create policy "admin manage tutor bank requests" on public.tutor_bank_access_requests for all to authenticated
