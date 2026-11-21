@@ -13,14 +13,15 @@ create table if not exists public.attendance_monthly_closures (
 );
 alter table public.attendance_monthly_closures enable row level security;
 drop policy if exists "admin manage attendance monthly closures" on public.attendance_monthly_closures;
-create policy "admin manage attendance monthly closures" on public.attendance_monthly_closures
-  for all to authenticated using (public.bimbelfun_is_admin()) with check (public.bimbelfun_is_admin());
+drop policy if exists "admin read attendance monthly closures" on public.attendance_monthly_closures;
+create policy "admin read attendance monthly closures" on public.attendance_monthly_closures
+  for select to authenticated using (public.bimbelfun_is_admin());
 drop policy if exists "tutor read own attendance monthly closures" on public.attendance_monthly_closures;
 create policy "tutor read own attendance monthly closures" on public.attendance_monthly_closures
   for select to authenticated using (exists (
     select 1 from public.tutors t where t.id = tutor_id and t.profile_user_id = auth.uid()
   ));
-grant select, insert, delete on public.attendance_monthly_closures to authenticated;
+grant select on public.attendance_monthly_closures to authenticated;
 
 create or replace function public.bimbelfun_guard_closed_attendance_month()
 returns trigger language plpgsql security definer set search_path=public
@@ -76,6 +77,9 @@ returns boolean language plpgsql security definer set search_path=public
 as $fn$
 begin
   if not public.bimbelfun_is_admin() then raise exception 'Hanya Admin yang dapat membuka kembali rekap presensi.'; end if;
+  if exists(select 1 from public.tutor_payrolls where tutor_id=p_tutor_id and period_start=p_period_start and status='paid') then
+    raise exception 'Invoice gaji sudah dibayar. Arsip presensi tidak dapat dibuka kembali.';
+  end if;
   delete from public.attendance_monthly_closures where tutor_id=p_tutor_id and period_start=p_period_start;
   return found;
 end;
@@ -250,16 +254,22 @@ create or replace function public.bimbelfun_guard_tutor_submission_review_fields
 returns trigger language plpgsql security definer set search_path=public
 as $fn$
 begin
- if not public.bimbelfun_is_admin() and (
-   (new.status is distinct from old.status and not (old.status='revision' and new.status='submitted')) or new.admin_comment is distinct from old.admin_comment
-   or new.score is distinct from old.score
- ) then raise exception 'Hanya Admin yang dapat mengubah status, komentar, dan nilai tugas video.'; end if;
+ if not public.bimbelfun_is_admin() then
+  if TG_OP='INSERT' and (new.status<>'submitted' or new.score is not null or new.admin_comment is not null) then
+   raise exception 'Pengumpulan Tentor harus berstatus Sudah dikumpulkan. Nilai dan komentar hanya dapat diberikan Admin.';
+  elsif TG_OP='UPDATE' and (
+   (new.status is distinct from old.status and not (old.status='revision' and new.status='submitted'))
+   or new.admin_comment is distinct from old.admin_comment or new.score is distinct from old.score
+  ) then
+   raise exception 'Hanya Admin yang dapat mengubah status pemeriksaan, komentar, dan nilai tugas video.';
+  end if;
+ end if;
  new.updated_at=now();
  return new;
 end;
 $fn$;
 drop trigger if exists tutor_video_submission_review_guard on public.tutor_video_submissions;
-create trigger tutor_video_submission_review_guard before update on public.tutor_video_submissions
+create trigger tutor_video_submission_review_guard before insert or update on public.tutor_video_submissions
 for each row execute function public.bimbelfun_guard_tutor_submission_review_fields();
 
 -- 3) Student progress reports.
@@ -483,7 +493,8 @@ create policy "tutor request and read own bank requests" on public.tutor_bank_ac
 using(exists(select 1 from public.tutors t where t.id=requester_tutor_id and t.profile_user_id=auth.uid()));
 drop policy if exists "tutor create own bank requests" on public.tutor_bank_access_requests;
 create policy "tutor create own bank requests" on public.tutor_bank_access_requests for insert to authenticated
-with check(exists(select 1 from public.tutors t where t.id=requester_tutor_id and t.profile_user_id=auth.uid()));
+with check(exists(select 1 from public.tutors t where t.id=requester_tutor_id and t.profile_user_id=auth.uid())
+ and exists(select 1 from public.tutor_bank_question_catalog c where c.id=question_id and c.owner_tutor_id<>requester_tutor_id));
 drop policy if exists "admin manage tutor bank grants" on public.tutor_bank_access_grants;
 create policy "admin manage tutor bank grants" on public.tutor_bank_access_grants for all to authenticated
 using(public.bimbelfun_is_admin()) with check(public.bimbelfun_is_admin());
